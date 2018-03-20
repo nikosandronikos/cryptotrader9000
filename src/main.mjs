@@ -186,7 +186,7 @@ class BinanceAccess {
     // Probably should be called once per minute but can handle
     // being called with any interval.
     update() {
-        if (!this.read) return false;
+        if (!this.ready) return false;
 
         return true;
     }
