@@ -94,8 +94,11 @@ class Limits {
     // If the limit is not exceed, true is returned and an operation is
     // recorded against the limit.
     testAndExecute(type) {
-        const limits = this._limits[type];
-        if (limits === undefined) throw `${type} is not a valid limit type`;
+        const limits = this._limits.get(type);
+        if (limits === undefined) {
+            console.log(this._limits);
+            throw `${type} is not a valid limit type`;
+        }
 
         for (const limit of limits) {
             if (limit.remain < 1) return false;
