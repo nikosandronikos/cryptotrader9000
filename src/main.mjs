@@ -132,7 +132,7 @@ class BinanceAccess {
         this.base = 'https://api.binance.com/';
         this._axiosInst = axios.create({
             baseURL: this.base,
-            timeout: 1000
+            timeout: config.timeout
         });
         this.ready = false;
         this.limits = null;
