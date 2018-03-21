@@ -5,14 +5,23 @@ import {config} from './config.mjs';
 
 const BinanceCommands = {
     time: {
+        name: 'exchangeTime',
         url: 'api/v1/time',
         weight: 1,
-        limitType: 'REQUEST'
+        limitType: 'REQUESTS'
     },
     info: {
+        name: 'exchangeInfo',
         url: 'api/v1/exchangeInfo',
         weight: 1,
-        limitType: 'REQUEST'
+        limitType: 'REQUESTS'
+    },
+    klines: {
+        name: 'klines',
+        url: 'api/v1/klines',
+        weight: 1,
+        limitType: 'REQUESTS',
+        reqParams: ['symbol', 'interval']
     }
 }
 
