@@ -1,4 +1,3 @@
-// use --experimental-modules flag to node to enable ES6 module support.
 import axios from 'axios';
 import https from 'https';
 
