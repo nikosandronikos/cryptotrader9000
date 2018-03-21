@@ -138,18 +138,32 @@ class BinanceAccess {
         this.limits = null;
     }
 
-    async apiCommand(cmd) {
+    async apiCommand(cmd, params={}) {
         if (cmd === undefined) return false;
 
         if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {
             return false;
         }
 
-        return this._axiosInst.get(cmd.url)
+        if (cmd.hasOwnProperty('reqParams')) {
+            let paramsOk = true;
+            let missing = [];
+            for (const param of cmd.reqParams) {
+                if (!params.hasOwnProperty(param)) {
+                    paramsOk = false;
+                    missing.push(param);
+                }
+            }
+            if (!paramsOk) {
+                throw `${cmd.name} missing parameters: ${missing.join()}`;
+            }
+        }
+
+        return this._axiosInst.get(cmd.url, {params: params})
             .then(response => {
                 console.log(
                     `${cmd.url} returned ${response.statusText} `+
-                    `({$response.status}) => ${response.data}`
+                    `(${response.status})`
                 );
                 return response.data;
                 //console.log(response.headers);
@@ -187,7 +201,7 @@ class BinanceAccess {
             );
         }
 
-        console.log(this.limits);
+        if (info.exchangeFilters.length > 0) throw 'Exchange filters now present.';
 
         // Init coin pairs we're interested in.
         this.coinPairs = new Map();
