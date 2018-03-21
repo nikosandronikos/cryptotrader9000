@@ -121,8 +121,44 @@ class Limits {
 }
 
 class CoinPair {
-    constructor(base, quote, info) {
+    constructor(binanceAccess, base, quote, info) {
+        this._binance = binanceAccess;
+        this.symbol = `${base}${quote}`;
+
         console.log(info);
+
+        if (info.status != 'TRADING') throw `CoinPair ${this.symbol} not trading.`;
+
+        for (const filter of info.filters) {
+            switch (filter.filterType) {
+                case 'PRICE_FILTER':
+                    this.priceFilter = filter;
+                    break;
+                case 'LOT_SIZE':
+                    this.lotSizeFilter = filter;
+                    break;
+                case 'MIN_NOTIONAL':
+                    this.minNotionalFilter = filter;
+                    break;
+                default: throw `${base}${quote} contains unknown filter.`;
+            }
+        }
+    }
+
+    async loadPriceData() {
+        // FIXME: Need to do something with this.
+        const klines = await this._binance.apiCommand(BinanceCommands.klines, {
+            symbol: this.symbol,
+            interval: '1d',
+            limit: 2
+        });
+        console.log(klines);
+    }
+
+    static async createAndLoadPriceData(binanceAccess, base, quote, info) {
+        const cp = new CoinPair(binanceAccess, base, quote, info);
+        await cp.loadPriceData();
+        return cp;
     }
 }
 
@@ -224,8 +260,8 @@ class BinanceAccess {
 
             if (pairInfo === null) throw 'Unknown coin pair';
 
-            const coinPair = new CoinPair(base, quote, pairInfo);
-
+            const coinPair =
+                await CoinPair.createAndLoadPriceData(this, base, quote, pairInfo);
             this.coinPairs.get(base).set(quote, coinPair);
         }
 
