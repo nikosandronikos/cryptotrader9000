@@ -171,6 +171,10 @@ export class BinanceAccess {
 
         console.log(config);
 
+        return this.send(cmd, config);
+    }
+
+    async send(cmd, config={}) {
         return this._axiosInst.get(cmd.url, config)
             .then(response => {
                 console.log(
