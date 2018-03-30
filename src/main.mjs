@@ -10,6 +10,8 @@ import {config} from './config.mjs';
 
     await binance.init();
     console.log('Binance access initialised.');
+
+    await binance.loadAccount(config.accounts[0]);
 })();
 
 /*

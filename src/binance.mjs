@@ -1,7 +1,9 @@
 import axios from 'axios';
+import crypto from 'crypto';
 
 import {intervalToMs} from './utils.mjs';
 import {CoinPair} from './coin.mjs';
+import {Account} from './account.mjs';
 import {config} from './config.mjs';
 
 export const BinanceCommands = {
@@ -23,6 +25,22 @@ export const BinanceCommands = {
         weight: 1,
         limitType: 'REQUESTS',
         reqParams: ['symbol', 'interval']
+    },
+    openOrdersForSymbol: {
+        name: 'openOrdersForSymbol',
+        url:       '/api/v3/openOrders',
+        weight:    1,
+        limitType: 'REQUESTS',
+        reqAuth:   true,
+        reqParams: ['symbol', 'timestamp']
+    },
+    accountInfo: {
+        name:   'accountInfo',
+        url:    '/api/v3/account',
+        weight: 5,
+        limitType:  'REQUESTS',
+        reqAuth:    true,
+        reqParams:  ['timestamp']
     }
 }
 
@@ -95,9 +113,10 @@ export class BinanceAccess {
         });
         this.ready = false;
         this.limits = null;
+        this.accounts = new Map();
     }
 
-    async apiCommand(cmd, params={}) {
+    async apiCommand(cmd, params={}, account=null) {
         if (cmd === undefined) return false;
 
         if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {
@@ -118,7 +137,23 @@ export class BinanceAccess {
             }
         }
 
-        return this._axiosInst.get(cmd.url, {params: params})
+        const config = {params: params};
+
+        if (cmd.reqAuth) {
+            if (account === null) throw `Account required for ${cmd.name}`;
+            config.headers = {'X-MBX-APIKEY': account.key};
+            // We know timestamp is always required
+            // FIXME: Use querystring module
+            const totalParams = `timestamp=${params.timestamp}`;
+            const hmac = crypto.createHmac('sha256', account.secret);
+            console.log(totalParams);
+            hmac.update(totalParams);
+            config.params.signature = hmac.digest('base64');
+        }
+
+        console.log(config);
+
+        return this._axiosInst.get(cmd.url, config)
             .then(response => {
                 console.log(
                     `${cmd.url} returned ${response.statusText} `+
@@ -151,6 +186,8 @@ export class BinanceAccess {
     async init() {
 
         const info = await this.apiCommand(BinanceCommands.info);
+        console.log('Local/Server time difference = '
+            +`${Date.now() - info.serverTime}ms`);
 
         // Init the API request limits
         this.limits = new Limits();
@@ -190,6 +227,17 @@ export class BinanceAccess {
 
         this.ready = true;
         return true;
+    }
+
+    getTimestamp() {
+        return Date.now();
+    }
+
+    async loadAccount(config) {
+        if (this.accounts.has(config.name)) throw 'Account already exists.';
+        const account = new Account(this, config);
+        this.accounts.set(config.name, account);
+        await account.getBalances();
     }
 
     // Periodic update.

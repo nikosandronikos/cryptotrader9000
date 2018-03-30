@@ -1,6 +1,14 @@
 import {BinanceCommands} from './binance.mjs';
 import {config} from './config.mjs';
 
+export class Coin {
+    constructor(name, initialFree=0, initialLocked=0) {
+        this.name = name;
+        this.free = initialFree;
+        this.locked = initialLocked;
+    }
+}
+
 export class CoinPair {
     constructor(binanceAccess, base, quote, info) {
         this._binance = binanceAccess;
