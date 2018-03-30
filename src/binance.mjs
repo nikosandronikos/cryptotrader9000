@@ -23,6 +23,11 @@ export const BinanceCommands = {
         weight: 1,
         limitType: 'REQUESTS',
         reqParams: ['symbol', 'interval']
+    },
+    available: {
+        name: 'apiAvailable',
+        url: 'api/v1/ping',
+        weight: 1//Not sure what this is yet.
     }
 }
 
@@ -97,8 +102,21 @@ export class BinanceAccess {
         this.limits = null;
     }
 
+    async isAvailable() {
+        //Documenation is weak on whether this returns anything other than '{}'.
+        //Monitor this response to see if we get anything else.
+        console.log(this.send(BinanceCommands.available));
+
+        return true;
+    }
+
     async apiCommand(cmd, params={}) {
         if (cmd === undefined) return false;
+
+        //Check we have a valid connection.
+        if(!this.isAvailable()) {
+            return false;
+        }
 
         if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {
             return false;
@@ -118,6 +136,10 @@ export class BinanceAccess {
             }
         }
 
+        return this.send(cmd, params);
+    }
+
+    async send(cmd, params={}) {
         return this._axiosInst.get(cmd.url, {params: params})
             .then(response => {
                 console.log(
