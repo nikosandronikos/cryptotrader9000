@@ -1,17 +1,17 @@
 #Use the official debian package.
-FROM node:carbon
+FROM node:9
 
 #Tell Nikos how bad he is.
 LABEL maintainer="Nikos is bad."
 
-WORKDIR /home/docker/cryptobot/
+#ADD . /crypto
 
-ADD . .
+#WORKDIR /crypto
 
 ENV NODE_ENV development
 ENV NPM_CONFIG_LOGLEVEL info
 
-RUN npm install
+#RUN npm install
 
 #RUN node --experimental-modules src/main.mjs
-CMD [ "npm", "start" ]
+#CMD [ "npm", "start" ]
