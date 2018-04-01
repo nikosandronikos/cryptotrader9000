@@ -237,7 +237,7 @@ export class BinanceAccess {
         if (this.accounts.has(config.name)) throw 'Account already exists.';
         const account = new Account(this, config);
         this.accounts.set(config.name, account);
-        await account.getBalances();
+        await account.syncBalances();
     }
 
     // Periodic update.
