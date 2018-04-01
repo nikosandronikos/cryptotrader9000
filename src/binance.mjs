@@ -1,5 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
+import querystring from 'querystring';
 
 import {intervalToMs} from './utils.mjs';
 import {CoinPair} from './coin.mjs';
@@ -147,16 +148,10 @@ export class BinanceAccess {
         if (cmd.reqAuth) {
             if (account === null) throw `Account required for ${cmd.name}`;
             config.headers = {'X-MBX-APIKEY': account.key};
-            // We know timestamp is always required
-            // FIXME: Use querystring module
-            const totalParams = `timestamp=${params.timestamp}`;
+            const totalParams = querystring.stringify(params);
             const hmac = crypto.createHmac('sha256', account.secret);
-            console.log(totalParams);
-            hmac.update(totalParams);
-            config.params.signature = hmac.digest('base64');
+            config.params.signature = hmac.update(totalParams).digest('hex');
         }
-
-        console.log(config);
 
         return this._axiosInst.get(cmd.url, config)
             .then(response => {
