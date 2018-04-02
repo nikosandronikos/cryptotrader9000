@@ -13,8 +13,7 @@ import {config} from './config.mjs';
 
     await binance.loadAccount(config.accounts[0]);
 
-    const sm = new StreamManager();
-    await sm.openStream(
+    await binance.streams.openStream(
         BinanceStreams.klines,
         {symbol: 'nulsbtc', interval: '1m'},
         (data) => {
@@ -22,7 +21,7 @@ import {config} from './config.mjs';
             console.log(`nulsbtc 1m klines: ${time} ${data.k.c}`);
         }
     );
-    await sm.openStream(
+    await binance.streams.openStream(
         BinanceStreams.ticker,
         {symbol: 'nulsbtc'},
         (data) => {

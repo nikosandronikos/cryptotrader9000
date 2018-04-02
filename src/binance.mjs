@@ -5,6 +5,7 @@ import querystring from 'querystring';
 import {intervalToMs} from './utils.mjs';
 import {CoinPair} from './coin.mjs';
 import {Account} from './account.mjs';
+import {StreamManager} from './datastream.mjs';
 import {config} from './config.mjs';
 
 export const BinanceCommands = {
@@ -120,6 +121,7 @@ export class BinanceAccess {
         this.ready = false;
         this.limits = null;
         this.accounts = new Map();
+        this.streams = new StreamManager();
     }
 
     async apiCommand(cmd, params={}, account=null) {
