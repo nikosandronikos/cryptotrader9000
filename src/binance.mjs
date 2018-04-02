@@ -125,6 +125,7 @@ export class BinanceAccess {
     }
 
     async apiCommand(cmd, params={}, account=null) {
+        if (!this.ready) throw 'BinanceAccess not ready.';
         if (cmd === undefined) return false;
 
         if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {
@@ -186,7 +187,6 @@ export class BinanceAccess {
     // Initialises the instance with the required historic data.
     // No other function can be run until init() is completed.
     async init() {
-
         const info = await this.apiCommand(BinanceCommands.info);
         console.log('Local/Server time difference = '
             +`${Date.now() - info.serverTime}ms`);
@@ -236,18 +236,10 @@ export class BinanceAccess {
     }
 
     async loadAccount(config) {
+        if (!this.ready) throw 'BinanceAccess not ready.';
         if (this.accounts.has(config.name)) throw 'Account already exists.';
         const account = new Account(this, config);
         this.accounts.set(config.name, account);
         await account.syncBalances();
-    }
-
-    // Periodic update.
-    // Probably should be called once per minute but can handle
-    // being called with any interval.
-    update() {
-        if (!this.ready) return false;
-
-        return true;
     }
 }
