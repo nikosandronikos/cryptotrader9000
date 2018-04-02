@@ -1,12 +1,25 @@
 {
   "name": "cryptotrader9000",
   "version": "0.0.1",
-  "description": "Crypto auto trader",
-  "main": "main.mjs",
-  "scripts": {
-    "start": "node --experimental-modules src/main.mjs"
-  },
+  "description": "A very basic rule based trading bot for Binance. For fun, not profit.",
+  "main": "src/main.mjs",
   "dependencies": {
-    "axios": "^0.18.0"
-  }
+    "axios": "^0.18.0",
+    "ws": "^5.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node --experimental-modules src/main.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nikosandronikos/cryptotrader9000.git"
+  },
+  "author": "Nikos Andronikos",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/nikosandronikos/cryptotrader9000/issues"
+  },
+  "homepage": "https://github.com/nikosandronikos/cryptotrader9000#readme"
 }
