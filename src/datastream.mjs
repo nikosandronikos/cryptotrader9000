@@ -23,6 +23,8 @@ export const BinanceStreams = {
 
 
 // Maintains WebSocket connections to the Binance stream API.
+// FIXME: WSS connections will be disconnected after 24 hours. Need
+//        to handle reconnection.
 export class StreamManager {
     constructor() {
         this.base = 'wss://stream.binance.com:9443';
