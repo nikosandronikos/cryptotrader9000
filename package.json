@@ -1,0 +1,12 @@
+{
+  "name": "cryptotrader9000",
+  "version": "0.0.1",
+  "description": "Crypto auto trader",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "node --experimental-modules src/main.mjs"
+  },
+  "dependencies": {
+    "axios": "^0.18.0"
+  }
+}

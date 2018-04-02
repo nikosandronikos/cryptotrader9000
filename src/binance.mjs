@@ -41,6 +41,11 @@ export const BinanceCommands = {
         limitType:  'REQUESTS',
         reqAuth:    true,
         reqParams:  ['timestamp']
+    },
+    available: {
+        name: 'apiAvailable',
+        url: 'api/v1/ping',
+        weight: 1
     }
 }
 
