@@ -3,6 +3,7 @@ import https from 'https';
 
 import {BinanceAccess, BinanceCommands} from './binance.mjs';
 import {StreamManager, BinanceStreams} from './datastream.mjs';
+import {MACDIndicator, EMAIndicator} from './indicator.mjs';
 import {config} from './config.mjs';
 
 (async function main() {
@@ -13,6 +14,11 @@ import {config} from './config.mjs';
 
     await binance.loadAccount(config.accounts[0]);
 
+    console.log(binance.coinPairs);
+    const nulsbtc = binance.coinPairs.get('NULS').get('BTC');
+    const macd = EMAIndicator.createAndInit(binance, nulsbtc, 13, '1m');
+
+    /*
     await binance.streams.openStream(
         BinanceStreams.klines,
         {symbol: 'nulsbtc', interval: '1m'},
@@ -29,6 +35,7 @@ import {config} from './config.mjs';
             console.log(`nulsbtc ticker: ${time} ${data.c}`);
         }
     );
+    */
 })();
 
 /*
