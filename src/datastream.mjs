@@ -49,6 +49,9 @@ export class StreamManager {
             throw `${config.name} missing parameters: ${missing.join()}`;
         }
 
+        // Binance api wants lower case coinpairs in URIs
+        params.symbol = params.symbol.toLowerCase();
+
         // Replaces sections of streamName denoted with ${} with
         // the value of the config parameter named within the curly
         // braces.
