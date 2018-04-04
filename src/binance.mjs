@@ -168,6 +168,7 @@ export class BinanceAccess {
             })
             .catch(err => {
                 console.log(`${cmd.url} returned error.`);
+                console.log(`config: ${config}`);
                 if (err.response) {
                     console.log('response:', err.response.data);
                     console.log(err.response.status);
@@ -187,6 +188,7 @@ export class BinanceAccess {
     // Initialises the instance with the required historic data.
     // No other function can be run until init() is completed.
     async init() {
+        this.ready = true;
         const info = await this.apiCommand(BinanceCommands.info);
         console.log('Local/Server time difference = '
             +`${Date.now() - info.serverTime}ms`);
@@ -227,7 +229,6 @@ export class BinanceAccess {
             this.coinPairs.get(base).set(quote, coinPair);
         }
 
-        this.ready = true;
         return true;
     }
 
