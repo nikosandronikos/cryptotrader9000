@@ -12,7 +12,7 @@ export class Indicator {
         this.coinPair = coinPair;
     }
 
-    getCurent() {
+    getCurrent() {
         throw 'Implement in sub-class.';
     }
 }
