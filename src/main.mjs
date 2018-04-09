@@ -3,7 +3,6 @@ import https from 'https';
 
 import {TelegramBot} from './telegram.mjs';
 import {BinanceAccess, BinanceCommands} from './binance.mjs';
-import {StreamManager, BinanceStreams} from './datastream.mjs';
 import {MACDIndicator, EMAIndicator} from './indicator.mjs';
 import {config} from './config.mjs';
 

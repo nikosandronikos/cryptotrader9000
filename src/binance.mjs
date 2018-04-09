@@ -5,7 +5,7 @@ import querystring from 'querystring';
 import {intervalToMs} from './utils.mjs';
 import {CoinPair} from './coin.mjs';
 import {Account} from './account.mjs';
-import {StreamManager} from './datastream.mjs';
+import {StreamManager} from './binancestream.mjs';
 import {config} from './config.mjs';
 
 export const BinanceCommands = {
@@ -168,7 +168,7 @@ export class BinanceAccess {
             })
             .catch(err => {
                 console.log(`${cmd.url} returned error.`);
-                console.log(`config: ${config}`);
+                console.log('config:', config);
                 if (err.response) {
                     console.log('response:', err.response.data);
                     console.log(err.response.status);

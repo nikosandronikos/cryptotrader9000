@@ -1,6 +1,6 @@
 import Big from 'big.js';
 import {BinanceCommands} from './binance.mjs';
-import {BinanceStreams} from './datastream.mjs';
+import {BinanceStreams, BinanceStreamKlines} from './binancestream.mjs';
 
 Big.DP = 8;
 
@@ -8,11 +8,11 @@ Big.DP = 8;
 // But will also need historical data.
 export class Indicator {
     constructor(binance, coinPair) {
-        this._binance = binance;
+        this.binance = binance;
         this.coinPair = coinPair;
     }
 
-    calculate() {
+    getCurent() {
         throw 'Implement in sub-class.';
     }
 }
@@ -22,69 +22,37 @@ export class EMAIndicator extends Indicator {
         super(binance, coinPair);
         this.nPeriods = nPeriods;
         this.interval = interval;
-        this.closePrices = [];
-        this.mostRecentPrice = 0;
+
+        this.data = null;
     }
 
     async init() {
-        // Get historical data
-        const klines = await this._binance.apiCommand(
-            BinanceCommands.klines,
-            {
-                symbol:   this.coinPair.symbol,
-                interval: this.interval,
-                limit:    this.nPeriods + 1
-            }
+        // Set up stream
+        this.stream = await BinanceStreamKlines.create(
+            this.binance,
+            this.coinPair.symbol,
+            this.interval,
+            'k.c'   // close price
         );
-        let lastTime = 0;
-        for (const kline of klines) {
-            if (kline[0] < lastTime) throw 'Klines not oldest to newest.';
-            lastTime = kline[0];
-            const price = Big(kline[4]);
-            this.closePrices.push(price);
-            const time = new Date(lastTime).toLocaleTimeString();
-            console.log(`${time} closed at ${price}`);
-        }
-        this.mostRecentPrice = lastTime;
+        // Get the history we will need to compute EMA.
+        // getHistory returns a TimeSeriesData which we will use from now on.
+        this.data = await this.stream.getHistory(this.nPeriods + 1);
+        // Feed stream data in the TimeSeriesData store
+        this.stream.addObserver('newData', this.data.addData, this.data);
+
+        // FIXME: Not sure what events would be best coming from the
+        //        TimeSeries class yet.
+        const showCalc = () => console.log(
+                `${this.coinPair.symbol} ${this.interval}`
+                +` EMA${this.nPeriods} = ${this._calculate()}`
+            );
+
+        this.data.addObserver('extended', showCalc);
+        this.data.addObserver('replaceRecent', showCalc);
 
         console.log(
             `${this.coinPair.symbol} ${this.interval}`
-            +` EMA${this.nPeriods} = ${this.calculate()}`
-        );
-
-        // TODO: Think there would be value in having a Sample class to
-        // encapsulate data streams.
-        // properties:
-        // - period (spacing between samples)
-        // - number of samples
-        // - time of first / most recent sample
-        // operations:
-        // - get n most recent samples
-        // - get samples in time range
-        // - get sample for time
-        // Sampler would know how to get data, so it can initialise itself
-        // and then fetch data that is requested but it doesn't hold.
-
-        // Setup realtime updater
-        await this._binance.streams.openStream(
-            BinanceStreams.klines,
-            {symbol: this.coinPair.symbol, interval: this.interval},
-            (data) => {
-                const price = Big(data.k.c);
-                const time = new Date(data.k.t).toLocaleTimeString();
-                if (data.k.t == this.mostRecentPrice) {
-                    console.log(`${time} ${price} overwrote`);
-                    this.closePrices[this.closePrices.length-1] = price;
-                } else if (data.k.t > this.mostRecentPrice) {
-                    console.log(`${time} ${price} new`);
-                    this.closePrices.push(price);
-                    this.mostRecentPrice = data.k.t;
-                }
-                console.log(
-                    `${this.coinPair.symbol} ${this.interval}`
-                    +` EMA${this.nPeriods} = ${this.calculate()}`
-                );
-            }
+            +` EMA${this.nPeriods} = ${this._calculate()}`
         );
     }
 
@@ -95,18 +63,17 @@ export class EMAIndicator extends Indicator {
         return ema;
     }
 
-    calculate() {
+    _calculate() {
+        const closePrices = this.data.getRecent(this.nPeriods + 1);
         // Simple moving average for the previous period.
-        const l = this.closePrices.length;
-        const sliced = this.closePrices.slice(l-this.nPeriods-1,l-1);
-        const sma = sliced.reduce(
+        const sma = closePrices.slice(0, this.nPeriods).reduce(
                         (a, v) => a = a.add(v)
                     ).div(this.nPeriods);
         // Weighting for most recent close price.
         const multiplier = Big(2).div(this.nPeriods).add(1);
         // Exponential moving average.
-        const lastClose = this.closePrices[this.closePrices.length - 1];
-        const ema = lastClose.sub(sma).mul(multiplier).add(sma).round(8);
+        const lastClose = closePrices.pop();
+        const ema = lastClose.sub(sma).times(multiplier).add(sma).round(8);
         //console.log(`sma = ${sma}, lastClose=${lastClose}, ema=${ema}`);
         return ema;
     }
@@ -124,7 +91,7 @@ export class MACDIndicator extends Indicator {
 
     async init() {
         // Get historical data
-        const klines = await this._binance.apiCommand(
+        const klines = await this.binance.apiCommand(
             BinanceCommands.klines,
             {
                 symbol:   this.coinPair.symbol,
