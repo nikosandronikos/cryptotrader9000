@@ -50,10 +50,7 @@ export class EMAIndicator extends Indicator {
         this.data.addObserver('extended', showCalc);
         this.data.addObserver('replaceRecent', showCalc);
 
-        console.log(
-            `${this.coinPair.symbol} ${this.interval}`
-            +` EMA${this.nPeriods} = ${this._calculate()}`
-        );
+        showCalc();
     }
 
     static async createAndInit(binance, coinPair, nPeriods, interval) {
