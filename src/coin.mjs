@@ -41,7 +41,6 @@ export class CoinPair {
             interval: '1d',
             limit: 2
         });
-        console.log(klines);
     }
 
     static async createAndLoadPriceData(binanceAccess, base, quote, info) {

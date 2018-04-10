@@ -16,8 +16,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         //FIXME: Should check time is exactly on the interval and return
         // error if not.
 
-        console.log('TimeSeriesData.addData: ', time, data.toString());
-
         if (this.data.length === 0) {
             this.data.push(data);
             this.lastTime = this.firstTime = time;
@@ -38,8 +36,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             this.data[replaceIndex] = data;
             this.notifyObservers('replaceRecent', data);
         }
-
-        console.log('  length =', this.data.length);
     }
 
     // Return the data from the most recent closed interval.
