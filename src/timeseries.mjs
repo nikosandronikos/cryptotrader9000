@@ -52,6 +52,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     // inteval which will likely not be closed, this behaviour can be changed
     // by passing includeOpen=false.
     getRecent(n, includeOpen=true) {
+        if (n < 1) throw new Error('n < 1');
         return this.data.slice(-n);
     }
 
