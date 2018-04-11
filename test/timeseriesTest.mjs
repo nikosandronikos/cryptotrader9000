@@ -50,7 +50,7 @@ test('add data overwrite', (t) => {
     let t = 0;
     for (v of add) {
         ts.addData(t % overwriteAfter, v);
-        t.equal(ts.data.length, Math.min(t, overWriteAfter);
+        t.equal(ts.data.length, Math.min(t, overWriteAfter));
     }
     t.deepEqual(ts.data, expected);
     t.end();
