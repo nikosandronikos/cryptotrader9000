@@ -47,10 +47,11 @@ test('add data overwrite', (t) => {
     const add = [1, 2, 3, 4, 5, 6];
     const overwriteAfter = 3;
     const expected = [4, 5, 6];
-    let t = 0;
+    let time = 0;
     for (v of add) {
-        ts.addData(t % overwriteAfter, v);
-        t.equal(ts.data.length, Math.min(t, overWriteAfter));
+        ts.addData(time % overwriteAfter, v);
+        t.equal(ts.data.length, Math.min(time, overWriteAfter));
+        time++;
     }
     t.deepEqual(ts.data, expected);
     t.end();
