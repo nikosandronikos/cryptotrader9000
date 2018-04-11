@@ -82,6 +82,8 @@ test('TimeSeriesData: get recent', (t) => {
     const n = 3;
     let i = 0;
 
+    t.deepEqual(ts.getRecent(3), []);
+
     for (; i < n; i++) {
         ts.addData(i * intervalMs, i);
     }
