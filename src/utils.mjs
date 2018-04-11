@@ -14,7 +14,7 @@ export function intervalToMs(intervalStr, multiplier=1) {
         case 'MINUTE':
             multiplier *= 60;
         case 'SECOND': return 1000 * multiplier;
-        default: throw 'bad intervalStr';
+        default: throw new Error('bad intervalStr');
     }
     return NaN;
 }
@@ -25,7 +25,7 @@ export function intervalToMs(intervalStr, multiplier=1) {
 export function chartIntervalToMs(intervalStr) {
     const result = intervalStr.match(/^([\d]+)([mhdwM])$/);
     if (result === null) {
-        throw `${intervalStr} is not a valid intervalStr.`;
+        throw new Error(`${intervalStr} is not a valid intervalStr.`);
         return NaN;
     }
     const num = result[1], period = result[2];
