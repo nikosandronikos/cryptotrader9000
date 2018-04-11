@@ -50,8 +50,8 @@ test('add data overwrite', (t) => {
     let time = 0;
     for (let v of add) {
         ts.addData(time % overWriteAfter, v);
-        t.equal(ts.data.length, Math.min(time, overWriteAfter));
         time++;
+        t.equal(ts.data.length, Math.min(time, overWriteAfter));
     }
     t.deepEqual(ts.data, expected);
     t.end();
@@ -65,7 +65,7 @@ test('add data overwrite 2', (t) => {
     for (let i = 0; i < nOver * nOverTimes; i++) {
         // First few (nOver) add normally, then overwriting starts.
         ts.addData(i % nOver, i);
-        t.equal(ts.data.length, Math.min(i, nOver));
+        t.equal(ts.data.length, Math.min(i+1, nOver));
     }
     t.deepEqual(ts.data, expected);
     t.end();
