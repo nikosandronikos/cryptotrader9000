@@ -42,6 +42,34 @@ test('add data back to front', (t) => {
     t.end();
 });
 
+test('add data overwrite', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const add = [1, 2, 3, 4, 5, 6];
+    const overwriteAfter = 3;
+    const expected = [4, 5, 6];
+    let t = 0;
+    for (v of add) {
+        ts.addData(t % overwriteAfter, v);
+        t.equal(ts.data.length, Math.min(t, overWriteAfter);
+    }
+    t.deepEqual(ts.data, expected);
+    t.end();
+});
+    
+test('add data overwrite 2', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const nOver = 3;
+    const nOverTimes = 2;
+    const expected = (new Array(nOver)).fill(0).map((v,i) => v + (nOver * (nOverTimes - 1)) + i);
+    for (let i = 0; i < nOver * nOverTimes; i++) {
+        // First few (nOver) add normally, then overwriting starts.
+        ts.addData(i % nOver, i);
+        t.equal(ts.data.length, Math.min(i, nOver));
+    }
+    t.deepEqual(ts.data, expected);
+    t.end();
+});
+    
 test('get recent', (t) => {
     const ts = new TimeSeriesData('1m');
     const n = 3;
@@ -59,4 +87,3 @@ test('get recent', (t) => {
 
     t.end();
 });
-
