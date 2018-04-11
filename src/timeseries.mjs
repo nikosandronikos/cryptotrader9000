@@ -51,6 +51,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
 
     // Get the most current data sample.
     getCurrent() {
+        return this.data[this.data.length - 1];
     }
 
     // Get the n most recent samples. By default, this includes the most recent

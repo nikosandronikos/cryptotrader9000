@@ -96,3 +96,22 @@ test('TimeSeriesData: get recent', (t) => {
 
     t.end();
 });
+
+test('TimeSeriesData: get current', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const intervalMs = 1 * 60 * 1000;
+
+    t.equal(ts.getCurrent(), undefined);
+
+    ts.addData(intervalMs, 42);
+    t.equal(ts.getCurrent(), 42);
+
+    ts.addData(intervalMs * 2, 43);
+    ts.addData(intervalMs * 3, 44);
+    t.equal(ts.getCurrent(), 44);
+
+    ts.addData(0, 100);
+    t.equal(ts.getCurrent(), 44);
+
+    t.end();
+});
