@@ -1,7 +1,7 @@
 export function intervalToMs(intervalStr, multiplier=1) {
     switch (intervalStr) {
         case 'M':
-            throw `Months aren't supported because they are too variable. Sorry.`;
+            throw new Error("Months aren't supported because they are too variable. Sorry.");
             return NaN;
         case 'w':
             multiplier *= 7;
