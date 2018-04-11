@@ -14,7 +14,7 @@
   },
   "scripts": {
     "start": "node --experimental-modules src/main.mjs",
-    "test": "node --experimental-modules test/*.mjs | faucet"
+    "test": "node --experimental-modules test/all.mjs | faucet"
   },
   "repository": {
     "type": "git",
