@@ -13,8 +13,13 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     }
 
     addData(time, data) {
-        //FIXME: Should check time is exactly on the interval and return
-        // error if not.
+        if (time % this.interval !== 0) {
+            throw new Error(
+                'time not exactly on the interval.'
+                + ` Interval = ${this.intervalStr}`
+                + `, time = ${time}, time % interval = ${time % this.interval}`
+            );
+        }
 
         if (this.data.length === 0) {
             this.data.push(data);
