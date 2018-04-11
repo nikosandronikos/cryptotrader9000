@@ -2,7 +2,7 @@ import {chartIntervalToMs}  from '../src/utils';
 import {TimeSeriesData} from '../src/timeseries';
 import test from 'tape';
 
-test('add data front to back', (t) => {
+test('TimeSeriesData: add data front to back', (t) => {
     const ts = new TimeSeriesData('1m');
     const intervalMs = 1 * 60 * 1000;
     let i = 0;
@@ -23,7 +23,7 @@ test('add data front to back', (t) => {
     t.end();
 });
 
-test('add data back to front', (t) => {
+test('TimeSeriesData: add data back to front', (t) => {
     const ts = new TimeSeriesData('1m');
     const intervalMs = 1 * 60 * 1000;
     let i = 0;
@@ -45,7 +45,7 @@ test('add data back to front', (t) => {
     t.end();
 });
 
-test('add data overwrite', (t) => {
+test('TimeSeriesData: add data overwrite', (t) => {
     const ts = new TimeSeriesData('1m');
     const intervalMs = 1 * 60 * 1000;
     const nOver = 3;
@@ -60,7 +60,7 @@ test('add data overwrite', (t) => {
     t.end();
 });
 
-test('add off interval', (t) => {
+test('TimeSeriesData: add off interval', (t) => {
     const intervalStrList = ['1m', '3m', '2h', '10d', '4w']
     for (const intervalStr of intervalStrList) {
         const ts = new TimeSeriesData(intervalStr);
@@ -76,7 +76,7 @@ test('add off interval', (t) => {
     t.end();
 });
 
-test('get recent', (t) => {
+test('TimeSeriesData: get recent', (t) => {
     const ts = new TimeSeriesData('1m');
     const intervalMs = 1 * 60 * 1000;
     const n = 3;
