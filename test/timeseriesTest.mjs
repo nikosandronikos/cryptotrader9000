@@ -48,7 +48,7 @@ test('add data overwrite', (t) => {
     const overwriteAfter = 3;
     const expected = [4, 5, 6];
     let time = 0;
-    for (v of add) {
+    for (let v of add) {
         ts.addData(time % overwriteAfter, v);
         t.equal(ts.data.length, Math.min(time, overWriteAfter));
         time++;
