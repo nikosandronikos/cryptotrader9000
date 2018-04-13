@@ -15,11 +15,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         this.data = [];
     }
 
-    _getMissingData(startTime, endTime, v) {
-        const n = Math.ceil((endTime - startTime) / this.interval);
-        return new Array(n).fill(v);
-    }
-
     _checkAndFillTrailingData(time) {
         const gap = time - this.lastTime;
         if (gap <= this.interval) return;
