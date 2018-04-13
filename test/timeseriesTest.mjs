@@ -68,10 +68,14 @@ test('TimeSeriesData: add off interval', (t) => {
 
         ts.addData(intervalMs, 1);
         ts.addData(intervalMs * 2, 2);
+        t.deepEqual(ts.data, [1, 2], 'a');
 
-        t.throws(() => ts.addData(intervalMs * 1.5, 3), Error);
-        t.throws(() => ts.addData(intervalMs * 0.9, 3), Error);
-        t.throws(() => ts.addData(intervalMs * 2.2, 3), Error);
+        ts.addData(intervalMs * 1.5, 3);
+        t.deepEqual(ts.data, [3, 2], 'b');
+        ts.addData(intervalMs * 0.9, 4);
+        t.deepEqual(ts.data, [4, 3, 2], 'c');
+        ts.addData(intervalMs * 2.2, 5);
+        t.deepEqual(ts.data, [4, 3, 5], 'c');
     }
     t.end();
 });
@@ -82,36 +86,63 @@ test('TimeSeriesData: get recent', (t) => {
     const n = 3;
     let i = 0;
 
-    t.deepEqual(ts.getRecent(3), []);
+    t.throws(() => ts.getRecent(3, intervalMs), Error);
 
     for (; i < n; i++) {
         ts.addData(i * intervalMs, i);
     }
 
-    t.throws(() => ts.getRecent(0), Error);
-    t.deepEqual(ts.getRecent(1), [i-1]);
-    t.deepEqual(ts.getRecent(2), [i-2,i-1]);
-    t.deepEqual(ts.getRecent(3), [i-3,i-2,i-1]);
-    t.deepEqual(ts.getRecent(4), [i-3,i-2,i-1]);
+    t.throws(() => ts.getRecent(0, intervalMs), Error);
+    t.deepEqual(ts.getRecent(1, i * intervalMs), [i-1]);
+    t.deepEqual(ts.getRecent(2, i * intervalMs), [i-2,i-1]);
+    t.deepEqual(ts.getRecent(3, i * intervalMs), [i-3,i-2,i-1]);
+    t.deepEqual(ts.getRecent(4, i * intervalMs), [i-3,i-2,i-1]);
+
+    // Request data from a timepoint with missing intervals.
+    // Missing data should be created by copying last element.
+    t.deepEqual(ts.getRecent(4, (i + 2) * intervalMs), [i-2,i-1,i-1,i-1]);
+    t.deepEqual(ts.getRecent(4, (i + 2 + 0.5) * intervalMs), [i-1,i-1,i-1,i-1]);
+
+    t.throws(() => ts.getRecent(2, i * intervalMs, false), Error);
 
     t.end();
 });
 
-test('TimeSeriesData: get current', (t) => {
+test('TimeSeriesData: add data miss intervals at end', (t) => {
     const ts = new TimeSeriesData('1m');
     const intervalMs = 1 * 60 * 1000;
 
-    t.equal(ts.getCurrent(), undefined);
+    ts.addData(intervalMs, 1);
+    t.equal(ts.data.length, 1, 'a');
 
-    ts.addData(intervalMs, 42);
-    t.equal(ts.getCurrent(), 42);
+    ts.addData(intervalMs * 3, 3);
+    t.equal(ts.data.length, 3, 'b');
 
-    ts.addData(intervalMs * 2, 43);
-    ts.addData(intervalMs * 3, 44);
-    t.equal(ts.getCurrent(), 44);
+    ts.addData(intervalMs * 5, 5);
+    t.equal(ts.data.length, 5, 'c');
 
-    ts.addData(0, 100);
-    t.equal(ts.getCurrent(), 44);
+    const expected = [1,1,3,3,5]
+    t.deepEqual(ts.data, expected, 'd');
+
+    t.end();
+});
+
+test('TimeSeriesData: add data miss intervals at start', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const intervalMs = 1 * 60 * 1000;
+
+    ts.addData(intervalMs * 5, 1);
+    t.equal(ts.data.length, 1, 'a');
+    t.equal(ts.firstTime, intervalMs * 5, 'a.2');
+    t.equal(ts.lastTime, intervalMs * 5, 'a.3');
+
+    ts.addData(intervalMs * 3, 3);
+    t.equal(ts.data.length, 3, 'b');
+    t.deepEqual(ts.data, [3, 3, 1], 'c');
+
+    ts.addData(intervalMs * 1.5, 5);
+    t.equal(ts.data.length, 5, 'd');
+    t.deepEqual(ts.data, [5, 5, 3, 3, 1], 'e');
 
     t.end();
 });
