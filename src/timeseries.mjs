@@ -64,6 +64,9 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     // be returned.
     getRecent(n, includeOpen=true) {
         if (n < 1) throw new Error('n < 1');
+        if (this.data.length < 1) throw new Error('Must have at least one entry.');
+        if (!includeOpen) throw new Error('Not implemented.');
+
         return this.data.slice(-n);
     }
 
