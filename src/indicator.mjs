@@ -40,6 +40,8 @@ export class EMAIndicator extends Indicator {
         );
         // Get the history we will need to compute EMA.
         // getHistory returns a TimeSeriesData which we will use from now on.
+        // FIXME: Should get more history and pre-compute EMA for a while
+        // because it takes a while to converge to the correct value.
         this.source = await this.stream.getHistory(1);
         // Feed stream data in the TimeSeriesData store
         this.stream.addObserver('newData', this.source.addData, this.source);
