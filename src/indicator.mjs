@@ -84,3 +84,59 @@ export class EMAIndicator extends Indicator {
     }
 }
 
+export class MultiEMAIndicator extends Indicator {
+    constructor(binance, coinPair, interval, lengths) {
+        super(binance, coinPair);
+        this.lengths = lengths;
+        this.lengths.sort((a,b) => b - a);
+        this.interval = interval;
+        this.emas = [];
+        this.data = new TimeSeriesData(interval);
+        this.currentTime = 0;
+        this.nUpdates = 0;
+        this.state = 'neutral';
+    }
+
+    async init() {
+        for (const length of this.lengths) {
+            const ema = await EMAIndicator.createAndInit(
+                this.binance,
+                this.coinPair,
+                length,
+                this.interval
+            );
+            this.emas.push(ema);
+        }
+        for (const ema of this.emas) {
+            ema.addObserver('update', (time, ema) => {
+                if (time > this.currentTime) {
+                    this.currentTime = time;
+                    this.nUpdates = 0;
+                }
+                this.nUpdates ++;
+                if (this.nUpdates == this.lengths.length) {
+                    console.log('-----------------------------------');
+                    console.log(`Got all ${this.nUpdates} for ${this.currentTime}`);
+                    const slow = this.emas[0].data.getRecent(1, time)[0];
+                    const fast = this.emas[this.emas.length - 1].data.getRecent(1, time)[0];
+                    const lastState = this.state;
+                    const cmp = fast.cmp(slow);
+                    console.log(fast.toString(), slow.toString(), cmp);
+                    if (cmp > 0) this.state = 'bullish';
+                    else if (cmp < 0) this.state = 'bearish';
+                    if (this.state !== lastState) {
+                        console.log(`**** switched to ${this.state} ***`);
+                        console.log(this.lengths);
+                    }
+                }
+            });
+        }
+    }
+
+    static async createAndInit(binance, coinPair, interval, lengths) {
+        console.log(`Creating MultiEMAIndicator for ${coinPair.symbol} (${interval}) ${lengths}`);
+        const ind = new MultiEMAIndicator(binance, coinPair, interval, lengths);
+        await ind.init();
+        return ind;
+    }
+}

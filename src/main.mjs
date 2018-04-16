@@ -3,7 +3,7 @@ import https from 'https';
 
 import {TelegramBot} from './telegram.mjs';
 import {BinanceAccess, BinanceCommands} from './binance.mjs';
-import {MACDIndicator, EMAIndicator} from './indicator.mjs';
+import {MultiEMAIndicator} from './indicator.mjs';
 import {config} from './config.mjs';
 
 (async function main() {
@@ -20,7 +20,7 @@ import {config} from './config.mjs';
 
     console.log(binance.coinPairs);
     const nulsbtc = binance.coinPairs.get('NULS').get('BTC');
-    const macd = EMAIndicator.createAndInit(binance, nulsbtc, 13, '1m');
+    const multiEma = MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
 
     /*
     await binance.streams.openStream(
