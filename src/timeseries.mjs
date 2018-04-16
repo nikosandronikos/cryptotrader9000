@@ -64,7 +64,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     }
 
     // Get the n most recent samples. By default, this includes the most recent
-    // inteval which will likely not be closed, this behaviour can be changed
+    // interval which will likely not be closed, this behaviour can be changed
     // by passing includeOpen=false.
     // if n > the number of samples available, all available samples will
     // be returned.
