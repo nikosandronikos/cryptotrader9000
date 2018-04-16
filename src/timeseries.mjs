@@ -58,7 +58,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             // If it falls exactly on the interval, overwrites an existing
             // sample, otherwise an error.
             const replaceIndex = (time - this.firstTime) / this.interval;
-            console.log('  replaces:', replaceIndex);
             this.data[replaceIndex] = data;
             this.notifyObservers('replaceRecent', data);
         }
