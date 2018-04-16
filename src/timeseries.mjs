@@ -71,11 +71,15 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     // be returned.
     getRecent(n, currentTime, includeOpen=true) {
         if (n < 1) throw new Error('n < 1');
-        if (this.data.length < 1) throw new Error('Must have at least one entry.');
-        if (!includeOpen) throw new Error('Not implemented.');
+        if (this.data.length < 1) return [];
 
         this._checkAndFillTrailingData(currentTime);
-        return this.data.slice(-n);
+        const lastSampleOpen = currentTime - this.lastTime < this.interval;
+
+        if (includeOpen || !lastSampleOpen) return this.data.slice(-n);
+
+        const offset = this.data.length - 1;
+        return this.data.slice(Math.max(0, offset - n), offset);
     }
 
     getRange(startTime, endTime) {
