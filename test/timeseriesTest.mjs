@@ -86,24 +86,50 @@ test('TimeSeriesData: get recent', (t) => {
     const n = 3;
     let i = 0;
 
-    t.throws(() => ts.getRecent(3, intervalMs), Error);
+    // Check that empty array returned when no data available.
+    t.equal(ts.getRecent(3, intervalMs) instanceof Array, true);
+    t.equal(ts.getRecent(3, intervalMs).length, 0);
 
+    ts.addData(i * intervalMs, i);
+    // Request for data with only one sample that isn't closed should
+    // give nothing.
+    t.deepEqual(ts.getRecent(10, i * intervalMs, false) instanceof Array,true); 
+    t.deepEqual(ts.getRecent(10, i * intervalMs, false).length, 0);
+    i++;
     for (; i < n; i++) {
         ts.addData(i * intervalMs, i);
     }
+    // i is used to determine last time sample below, so return it to the
+    // last used value.
+    i--;
 
     t.throws(() => ts.getRecent(0, intervalMs), Error);
-    t.deepEqual(ts.getRecent(1, i * intervalMs), [i-1]);
-    t.deepEqual(ts.getRecent(2, i * intervalMs), [i-2,i-1]);
-    t.deepEqual(ts.getRecent(3, i * intervalMs), [i-3,i-2,i-1]);
-    t.deepEqual(ts.getRecent(4, i * intervalMs), [i-3,i-2,i-1]);
+
+    t.deepEqual(ts.getRecent(1, i * intervalMs) instanceof Array, true);
+    t.deepEqual(ts.getRecent(1, i * intervalMs), [i]);
+    t.deepEqual(ts.getRecent(1, i * intervalMs, true), [i]);
+    t.deepEqual(ts.getRecent(1, i * intervalMs, false), [i-1]);
+
+    t.deepEqual(ts.getRecent(2, i * intervalMs), [i-1,i]);
+    t.deepEqual(ts.getRecent(2, i * intervalMs, true), [i-1,i]);
+    t.deepEqual(ts.getRecent(2, i * intervalMs, false), [i-2, i-1]);
+
+    t.deepEqual(ts.getRecent(3, i * intervalMs), [i-2,i-1,i]);
+    t.deepEqual(ts.getRecent(3, i * intervalMs, true), [i-2,i-1,i]);
+    t.deepEqual(ts.getRecent(3, i * intervalMs, false), [i-2,i-1]);
+
+    t.deepEqual(ts.getRecent(4, i * intervalMs), [i-2,i-1,i]);
+    t.deepEqual(ts.getRecent(4, i * intervalMs, true), [i-2,i-1,i]);
+    t.deepEqual(ts.getRecent(4, i * intervalMs, false), [i-2,i-1]);
+    t.deepEqual(ts.getRecent(10, i * intervalMs, false), [i-2,i-1]);
 
     // Request data from a timepoint with missing intervals.
     // Missing data should be created by copying last element.
-    t.deepEqual(ts.getRecent(4, (i + 2) * intervalMs), [i-2,i-1,i-1,i-1]);
-    t.deepEqual(ts.getRecent(4, (i + 2 + 0.5) * intervalMs), [i-1,i-1,i-1,i-1]);
-
-    t.throws(() => ts.getRecent(2, i * intervalMs, false), Error);
+    t.deepEqual(ts.getRecent(4, (i + 2) * intervalMs), [i-1,i,i,i]);
+    // Shouldn't actually add another one - within the same interval as the last
+    t.deepEqual(ts.getRecent(4, (i + 2 + 0.5) * intervalMs), [i-1,i,i,i]);
+    // Should add one more
+    t.deepEqual(ts.getRecent(4, (i + 3) * intervalMs), [i,i,i,i], '<-');
 
     t.end();
 });
@@ -123,6 +149,11 @@ test('TimeSeriesData: add data miss intervals at end', (t) => {
 
     const expected = [1,1,3,3,5]
     t.deepEqual(ts.data, expected, 'd');
+
+    // Shouldn't cause new data to be added.
+    ts.addData(intervalMs * 5.5, 6);
+    t.equal(ts.data.length, 5, 'e');
+    t.deepEqual(ts.data, [1,1,3,3,6], 'f');
 
     t.end();
 });
@@ -146,3 +177,4 @@ test('TimeSeriesData: add data miss intervals at start', (t) => {
 
     t.end();
 });
+
