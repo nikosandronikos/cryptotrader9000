@@ -73,7 +73,7 @@ export class EMAIndicator extends Indicator {
         // Weighting for most recent close price.
         const multiplier = Big(2).div(this.nPeriods + 1);
 
-        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier)));
+        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);
         this.data.addData(time, ema);
         return ema;
     }
