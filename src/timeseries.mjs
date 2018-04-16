@@ -16,40 +16,42 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     }
 
     _checkAndFillTrailingData(time) {
+        if (time % this.interval !== 0) time -= (time % this.interval);
         const gap = time - this.lastTime;
-        if (gap <= this.interval) return;
+        if (gap < this.interval) return;
+        const nMissing = Math.ceil(gap / this.interval);
+        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
         this.data = this.data.concat(
-            new Array(
-                Math.ceil((time - this.interval - this.lastTime) / this.interval)
-            ).fill(this.data[this.data.length - 1])
+            new Array(nMissing).fill(this.data[this.data.length - 1])
         );
+        this.lastTime = time;
     }
 
     _checkAndFillLeadingData(time, data) {
+        if (time % this.interval !== 0) time -= (time % this.interval);
         const gap = this.firstTime - time;
-        if (gap <= this.interval) return;
-        this.data = new Array(
-            Math.ceil((this.firstTime - time) / this.interval - 1)
-        ).fill(data).concat(this.data);
+        if (gap < this.interval) return;
+        const nMissing = Math.ceil(gap / this.interval);
+        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
+        this.data = new Array(nMissing).fill(data).concat(this.data);
+        this.firstTime = time;
     }
 
     addData(time, data) {
-        if (time % this.interval !== 0) {
-            time -= (time % this.interval);
-        }
+        if (time % this.interval !== 0) time -= (time % this.interval);
 
         if (this.data.length === 0) {
             this.data.push(data);
             this.lastTime = this.firstTime = time;
         } else if (time > this.lastTime) {
             // Comes after last sample
-            this._checkAndFillTrailingData(time);
+            this._checkAndFillTrailingData(time - this.interval);
             this.data.push(data);
             this.lastTime = time;
             this.notifyObservers('extended', data);
         } else if (time < this.firstTime) {
             // Comes before first sample
-            this._checkAndFillLeadingData(time, data);
+            this._checkAndFillLeadingData(time + this.interval, data);
             this.data.unshift(data);
             this.firstTime = time;
         } else {
