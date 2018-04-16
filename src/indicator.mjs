@@ -1,4 +1,5 @@
 import Big from 'big.js';
+import {ObservableMixin} from './observable';
 import {BinanceCommands} from './binance.mjs';
 import {BinanceStreams, BinanceStreamKlines} from './binancestream.mjs';
 import {TimeSeriesData} from './timeseries';
@@ -7,8 +8,9 @@ Big.DP = 8;
 
 // Will update based on ticker.
 // But will also need historical data.
-export class Indicator {
+export class Indicator extends ObservableMixin(Object) {
     constructor(binance, coinPair) {
+        super();
         this.binance = binance;
         this.coinPair = coinPair;
     }
@@ -75,6 +77,7 @@ export class EMAIndicator extends Indicator {
 
         const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);
         this.data.addData(time, ema);
+        this.notifyObservers('update', time, ema);
         return ema;
     }
 }
