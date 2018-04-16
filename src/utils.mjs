@@ -30,6 +30,5 @@ export function chartIntervalToMs(intervalStr) {
     }
     const num = result[1], period = result[2];
     const ms = intervalToMs(period, num);
-    console.log('intervalStr', num, period, ms);
     return ms;
 }
