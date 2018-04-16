@@ -1,6 +1,7 @@
 import Big from 'big.js';
 import {BinanceCommands} from './binance.mjs';
 import {BinanceStreams, BinanceStreamKlines} from './binancestream.mjs';
+import {TimeSeriesData} from './timeseries';
 
 Big.DP = 8;
 
@@ -23,7 +24,8 @@ export class EMAIndicator extends Indicator {
         this.nPeriods = nPeriods;
         this.interval = interval;
 
-        this.data = null;
+        this.source = null;
+        this.data = new TimeSeriesData(interval);
     }
 
     async init() {
@@ -36,9 +38,9 @@ export class EMAIndicator extends Indicator {
         );
         // Get the history we will need to compute EMA.
         // getHistory returns a TimeSeriesData which we will use from now on.
-        this.data = await this.stream.getHistory(this.nPeriods + 1);
+        this.source = await this.stream.getHistory(this.nPeriods + 1);
         // Feed stream data in the TimeSeriesData store
-        this.stream.addObserver('newData', this.data.addData, this.data);
+        this.stream.addObserver('newData', this.source.addData, this.source);
 
         // FIXME: Not sure what events would be best coming from the
         //        TimeSeries class yet.
@@ -47,8 +49,8 @@ export class EMAIndicator extends Indicator {
                 +` EMA${this.nPeriods} = ${this._calculate()}`
             );
 
-        this.data.addObserver('extended', showCalc);
-        this.data.addObserver('replaceRecent', showCalc);
+        this.source.addObserver('extended', showCalc);
+        this.source.addObserver('replaceRecent', showCalc);
 
         showCalc();
     }
@@ -61,17 +63,18 @@ export class EMAIndicator extends Indicator {
     }
 
     _calculate() {
-        const closePrices = this.data.getRecent(this.nPeriods + 1);
-        // Simple moving average for the previous period.
-        const sma = closePrices.slice(0, this.nPeriods).reduce(
-                        (a, v) => a = a.add(v)
-                    ).div(this.nPeriods);
+        const time = this.binance.getTimestamp();
+        const current = this.source.getRecent(1, time)[0];
+        // Either last EMA if available or last close price
+        let last = NaN;
+        last = this.data.getRecent(2, time)[0];
+        if (last === undefined) last = current;
+
         // Weighting for most recent close price.
-        const multiplier = Big(2).div(this.nPeriods).add(1);
-        // Exponential moving average.
-        const lastClose = closePrices.pop();
-        const ema = lastClose.sub(sma).times(multiplier).add(sma).round(8);
-        //console.log(`sma = ${sma}, lastClose=${lastClose}, ema=${ema}`);
+        const multiplier = Big(2).div(this.nPeriods + 1);
+
+        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier)));
+        this.data.addData(time, ema);
         return ema;
     }
 }
