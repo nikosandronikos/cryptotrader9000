@@ -7,7 +7,7 @@ export function intervalToMs(intervalStr, multiplier=1) {
         case 'w':
             multiplier *= 7;
         case 'd':
-        case 'DAY': return 24 * 60 * 60 * 1000 * multiplier;
+        case 'DAY':
             multiplier *= 24;
         case 'h':
             multiplier *= 60;
