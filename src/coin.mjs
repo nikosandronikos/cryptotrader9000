@@ -1,4 +1,5 @@
 import {BinanceCommands} from './binance.mjs';
+import {log} from './log';
 import {config} from './config.mjs';
 
 export class Coin {
@@ -14,7 +15,7 @@ export class CoinPair {
         this._binance = binanceAccess;
         this.symbol = `${base}${quote}`;
 
-        console.log(info);
+        log.debug(info);
 
         if (info.status != 'TRADING') throw `CoinPair ${this.symbol} not trading.`;
 
