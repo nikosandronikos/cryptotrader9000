@@ -81,6 +81,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         return this.data.slice(Math.max(0, offset - n), offset);
     }
 
+    // eslint-disable-next-line no-unused-vars
     getRange(startTime, endTime) {
     }
 }

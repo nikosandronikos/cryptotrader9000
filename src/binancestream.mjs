@@ -1,4 +1,4 @@
-import {BinanceAccess, BinanceCommands} from './binance.mjs';
+import {BinanceCommands} from './binance.mjs';
 import {ObservableMixin} from './observable';
 import {TimeSeriesData} from './timeseries';
 import {log} from './log';
@@ -25,7 +25,7 @@ export const BinanceStreams = {
         streamName: '${symbol}@depth',
         reqParams: ['symbol']
     }
-}
+};
 
 // Maintains WebSocket connections to the Binance stream API.
 // FIXME: WSS connections will be disconnected after 24 hours. Need
@@ -62,7 +62,7 @@ export class StreamManager extends ObservableMixin(Object) {
         // the value of the config parameter named within the curly
         // braces.
         const name = config.streamName.replace(/\${([a-z]+)}/g,
-            (match, offset,str) => params[match.slice(2,-1)]
+            (match) => params[match.slice(2,-1)]
         );
 
         let streamDefn = null;
@@ -202,26 +202,32 @@ export class BinanceStreamKlines extends BinanceStream {
     }
 }
 
-class BinanceStreamTicker extends BinanceStream {
+export class BinanceStreamTicker extends BinanceStream {
+    // eslint-disable-next-line no-unused-vars
     getHistory(length) {
         const history = new TimeSeriesData(this.interval);
         // FIXME: TODO
         throw 'Not implemented';
+        // eslint-disable-next-line no-unreachable
         return history;
     }
 }
 
+// eslint-disable-next-line no-unused-vars
 const tickerStreamToRestMap = new Map();
 
-class BinanceStreamDepth extends BinanceStream {
+export class BinanceStreamDepth extends BinanceStream {
+    // eslint-disable-next-line no-unused-vars
     getHistory(length) {
         const history = new TimeSeriesData(this.interval);
         // FIXME: TODO
         throw 'Not implemented';
+        // eslint-disable-next-line no-unreachable
         return history;
     }
 }
 
+// eslint-disable-next-line no-unused-vars
 const depthStreamToRestMap = new Map();
 
 

@@ -50,7 +50,7 @@ export const BinanceCommands = {
         url: 'api/v1/ping',
         weight: 1
     }
-}
+};
 
 class Limits {
     constructor() {

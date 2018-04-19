@@ -1,5 +1,6 @@
 export {config};
 
+/* eslint-disable indent */
 const config = {
     timeout: 3000,
     coinList: [],

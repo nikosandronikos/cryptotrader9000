@@ -22,7 +22,7 @@ export const ObservableMixin = superclass => class extends superclass {
             observer(...args);
         }
     }
-}
+};
 
 /**************************************************************************
     How to use:

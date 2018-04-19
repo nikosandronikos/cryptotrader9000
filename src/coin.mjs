@@ -1,6 +1,5 @@
 import {BinanceCommands} from './binance.mjs';
 import {log} from './log';
-import {config} from './config.mjs';
 
 export class Coin {
     constructor(name, initialFree=0, initialLocked=0) {
@@ -37,6 +36,7 @@ export class CoinPair {
 
     async loadPriceData() {
         // FIXME: Need to do something with this.
+        // eslint-disable-next-line no-unused-vars
         const klines = await this._binance.apiCommand(BinanceCommands.klines, {
             symbol: this.symbol,
             interval: '1d',

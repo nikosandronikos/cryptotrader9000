@@ -1,7 +1,4 @@
-import axios from 'axios';
-import https from 'https';
-
-import {BinanceAccess, BinanceCommands} from './binance.mjs';
+import {BinanceAccess} from './binance.mjs';
 import {MultiEMAIndicator} from './indicator.mjs';
 import {log} from './log';
 import {config} from './config.mjs';
@@ -18,41 +15,10 @@ import {config} from './config.mjs';
 
     log.debug(binance.coinPairs);
     const nulsbtc = binance.coinPairs.get('NULS').get('BTC');
+    // eslint-disable-next-line no-unused-vars
     const multiEma = MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
 
-    /*
-    await binance.streams.openStream(
-        BinanceStreams.klines,
-        {symbol: 'nulsbtc', interval: '1m'},
-        (data) => {
-            const time = new Date(data.E).toLocaleString();
-            console.log(`nulsbtc 1m klines: ${time} ${data.k.c}`);
-        }
-    );
-    await binance.streams.openStream(
-        BinanceStreams.ticker,
-        {symbol: 'nulsbtc'},
-        (data) => {
-            const time = new Date(data.E).toLocaleString();
-            console.log(`nulsbtc ticker: ${time} ${data.c}`);
-        }
-    );
-    */
+    const eosbtc = binance.coinPairs.get('EOS').get('BTC');
+    // eslint-disable-next-line no-unused-vars
+    const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, '15m', [55, 21, 13, 8]);
 })();
-
-/*
-https.get(
-    `${binanceBase}api/v1/time`,
-    res => {
-        res.setEncoding('utf8');
-        let body = "";
-        res.on('data', data=> {
-            body += data;
-        });
-        res.on('end', () => {
-            body = JSON.parse(body);
-            console.log(body);
-        });
-    });
-);
-*/

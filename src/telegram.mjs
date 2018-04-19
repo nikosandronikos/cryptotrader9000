@@ -22,7 +22,7 @@ export class TelegramBot {
                 text: m,
                 disable_notification: true
             }
-        }
+        };
 
         return this._axiosInst.get(url, cfg)
             .then(response => {

@@ -1,8 +1,9 @@
+/* eslint-disable no-fallthrough */
+
 export function intervalToMs(intervalStr, multiplier=1) {
     switch (intervalStr) {
         case 'M':
             throw new Error("Months aren't supported because they are too variable. Sorry.");
-            return NaN;
         case 'w':
             multiplier *= 7;
         case 'd':
@@ -16,7 +17,6 @@ export function intervalToMs(intervalStr, multiplier=1) {
         case 'SECOND': return 1000 * multiplier;
         default: throw new Error('bad intervalStr');
     }
-    return NaN;
 }
 
 // A chart interval string is a number followed by a time period.
@@ -26,7 +26,6 @@ export function chartIntervalToMs(intervalStr) {
     const result = intervalStr.match(/^([\d]+)([mhdwM])$/);
     if (result === null) {
         throw new Error(`${intervalStr} is not a valid intervalStr.`);
-        return NaN;
     }
     const num = result[1], period = result[2];
     const ms = intervalToMs(period, num);

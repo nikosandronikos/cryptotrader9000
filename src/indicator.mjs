@@ -1,7 +1,6 @@
 import Big from 'big.js';
 import {ObservableMixin} from './observable';
-import {BinanceCommands} from './binance.mjs';
-import {BinanceStreams, BinanceStreamKlines} from './binancestream.mjs';
+import {BinanceStreamKlines} from './binancestream.mjs';
 import {TimeSeriesData} from './timeseries';
 import {log} from './log';
 
@@ -50,9 +49,9 @@ export class EMAIndicator extends Indicator {
         // FIXME: Not sure what events would be best coming from the
         //        TimeSeries class yet.
         const showCalc = () => log.debug(
-                `${this.coinPair.symbol} ${this.interval}`
-                +` EMA${this.nPeriods} = ${this._calculate()}`
-            );
+            `${this.coinPair.symbol} ${this.interval}`
+            +` EMA${this.nPeriods} = ${this._calculate()}`
+        );
 
         this.source.addObserver('extended', showCalc);
         this.source.addObserver('replaceRecent', showCalc);
@@ -109,6 +108,7 @@ export class MultiEMAIndicator extends Indicator {
             this.emas.push(ema);
         }
         for (const ema of this.emas) {
+            // eslint-disable-next-line no-unused-vars
             ema.addObserver('update', (time, ema) => {
                 if (time > this.currentTime) {
                     this.currentTime = time;
