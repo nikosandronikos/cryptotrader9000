@@ -6,6 +6,7 @@ import {intervalToMs} from './utils.mjs';
 import {CoinPair} from './coin.mjs';
 import {Account} from './account.mjs';
 import {StreamManager} from './binancestream.mjs';
+import {log} from './log.mjs';
 import {config} from './config.mjs';
 
 export const BinanceCommands = {
@@ -86,7 +87,7 @@ class Limits {
     testAndExecute(type) {
         const limits = this._limits.get(type);
         if (limits === undefined) {
-            console.log(this._limits);
+            log.info(this._limits);
             throw `${type} is not a valid limit type`;
         }
 
@@ -158,29 +159,29 @@ export class BinanceAccess {
 
         return this._axiosInst.get(cmd.url, config)
             .then(response => {
-                console.log(
+                log.info(
                     `${cmd.url} returned ${response.statusText} `+
                     `(${response.status})`
                 );
                 return response.data;
-                //console.log(response.headers);
-                //console.log('config:', response.config);
+                //log.debug(response.headers);
+                //log.debug('config:', response.config);
             })
             .catch(err => {
-                console.log(`${cmd.url} returned error.`);
-                console.log('config:', config);
+                log.error(`${cmd.url} returned error.`);
+                log.debug('config:', config);
                 if (err.response) {
-                    console.log('response:', err.response.data);
-                    console.log(err.response.status);
+                    log.error('response:', err.response.data);
+                    log.debug(err.response.status);
                     //console.log(err.response.headers);
                 } else if (err.request) {
                     // The request was made but no response received.
-                    console.log('No response');
-                    console.log(err.request);
+                    log.error('No response');
+                    log.debug(err.request);
                 } else {
-                    console.log('Error', err.message);
+                    log.error('Error', err.message);
                 }
-                //console.log('err.config:', err.config);
+                //log.debug('err.config:', err.config);
                 throw err;
             });
     }
@@ -190,7 +191,7 @@ export class BinanceAccess {
     async init() {
         this.ready = true;
         const info = await this.apiCommand(BinanceCommands.info);
-        console.log('Local/Server time difference = '
+        log.info('Local/Server time difference = '
             +`${Date.now() - info.serverTime}ms`);
 
         // Init the API request limits
@@ -206,7 +207,7 @@ export class BinanceAccess {
         // Init coin pairs we're interested in.
         this.coinPairs = new Map();
         for (const pair of config.coinList) {
-            console.log(`Initialising ${pair}`);
+            log.debug(`Initialising ${pair}`);
             const [base, quote] = pair.split(':');
 
             if (!this.coinPairs.has(base)) this.coinPairs.set(base, new Map());

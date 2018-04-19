@@ -136,7 +136,7 @@ export class MultiEMAIndicator extends Indicator {
     }
 
     static async createAndInit(binance, coinPair, interval, lengths) {
-        console.log(`Creating MultiEMAIndicator for ${coinPair.symbol} (${interval}) ${lengths}`);
+        log.info(`Creating MultiEMAIndicator for ${coinPair.symbol} (${interval}) ${lengths}`);
         const ind = new MultiEMAIndicator(binance, coinPair, interval, lengths);
         await ind.init();
         return ind;

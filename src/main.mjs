@@ -16,7 +16,7 @@ import {config} from './config.mjs';
 
     await binance.loadAccount(config.accounts[0]);
 
-    console.log(binance.coinPairs);
+    log.debug(binance.coinPairs);
     const nulsbtc = binance.coinPairs.get('NULS').get('BTC');
     const multiEma = MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
 

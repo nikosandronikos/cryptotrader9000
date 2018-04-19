@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import {log} from './log';
 import {config} from './config.mjs';
 
 export class TelegramBot {
@@ -25,7 +26,7 @@ export class TelegramBot {
 
         return this._axiosInst.get(url, cfg)
             .then(response => {
-                console.log(
+                log.info(
                     `${url} returned ${response.statusText} `+
                     `(${response.status})`+
                     `${response.data}`
@@ -33,17 +34,17 @@ export class TelegramBot {
                 return response.data;
             })
             .catch(err => {
-                console.log(`${url} returned error.`);
+                log.error(`${url} returned error.`);
                 if (err.response) {
-                    console.log('response:', err.response.data);
-                    console.log(err.response.status);
+                    log.error('response:', err.response.data);
+                    log.error(err.response.status);
                     //console.log(err.response.headers);
                 } else if (err.request) {
                     // The request was made but no response received.
-                    console.log('No response');
-                    console.log(err.request);
+                    log.error('No response');
+                    log.error(err.request);
                 } else {
-                    console.log('Error', err.message);
+                    log.error('Error', err.message);
                 }
                 throw err;
             });

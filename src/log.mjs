@@ -1,26 +1,28 @@
 import {TelegramBot} from './telegram.mjs';
 
+const Console = console;
+
 class Log {
     constructor() {
-        //this.telegram = new TelegramBot();
+        this.telegram = new TelegramBot();
     }
 
     error(message) {
         if (this.telegram) this.telegram.message(message);
-        console.log(message)
+        Console.log(message);
     }
 
     notify(message) {
         if (this.telegram) this.telegram.message(message);
-        console.log(message)
+        Console.log(message);
     }
 
     info(message) {
-        //console.log(message)
+        Console.log(message);
     }
 
     debug(message) {
-        //console.log(message)
+        Console.log(message);
     }
 }
 

@@ -1,6 +1,8 @@
 import {BinanceAccess, BinanceCommands} from './binance.mjs';
 import {ObservableMixin} from './observable';
 import {TimeSeriesData} from './timeseries';
+import {log} from './log';
+
 import Big from 'big.js';
 import WebSocket from 'ws';
 
@@ -86,17 +88,17 @@ export class StreamManager extends ObservableMixin(Object) {
         const addr =
             `${this.base}/stream?streams=${[...this.streams.keys()].join('/')}`;
 
-        console.log(`Opening WebSocket ${addr}`);
+        log.debug(`Opening WebSocket ${addr}`);
 
         if (this.ws) {
-            console.log('  Closing existing connection.');
+            log.debug('  Closing existing connection.');
             this._closeCombinedStream();
         }
 
         return new Promise((resolve, reject) => {
             const ws = new WebSocket(addr);
             ws.onopen = () => {
-                console.log('Stream created and ready.');
+                log.debug('Stream created and ready.');
                 this.messageListener =
                     ws.addEventListener('message', (message) => {
                         const full = JSON.parse(message.data);
@@ -107,7 +109,7 @@ export class StreamManager extends ObservableMixin(Object) {
                         }
                     });
                 ws.on('close', (code, reason) => {
-                    console.log(`WebSocket closed. ${reason} (${code}).`);
+                    log.debug(`WebSocket closed. ${reason} (${code}).`);
                 });
                 this.ws = ws;
                 resolve(ws);

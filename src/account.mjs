@@ -1,6 +1,6 @@
 import {BinanceCommands} from './binance.mjs';
-
 import {Coin} from './coin.mjs';
+import {log} from './log';
 
 export class Account {
     constructor(binance, config) {
@@ -29,7 +29,7 @@ export class Account {
             const locked = parseFloat(coinInfo.locked);
 
             if (free === 0.0 && locked === 0.0) continue;
-            console.log(coinInfo.asset, free, locked);
+            log.debug(coinInfo.asset, free, locked);
             let coin = null;
             if (!this.hodl.has(coinInfo.asset)) {
                 coin = new Coin(coinInfo.asset, free, locked);
