@@ -3,6 +3,7 @@ import {ObservableMixin} from './observable';
 import {BinanceCommands} from './binance.mjs';
 import {BinanceStreams, BinanceStreamKlines} from './binancestream.mjs';
 import {TimeSeriesData} from './timeseries';
+import {log} from './log';
 
 Big.DP = 8;
 
@@ -48,7 +49,7 @@ export class EMAIndicator extends Indicator {
 
         // FIXME: Not sure what events would be best coming from the
         //        TimeSeries class yet.
-        const showCalc = () => console.log(
+        const showCalc = () => log.debug(
                 `${this.coinPair.symbol} ${this.interval}`
                 +` EMA${this.nPeriods} = ${this._calculate()}`
             );
@@ -60,7 +61,7 @@ export class EMAIndicator extends Indicator {
     }
 
     static async createAndInit(binance, coinPair, nPeriods, interval) {
-        console.log(`Creating EMAIndicator for ${coinPair.symbol} (${nPeriods}) ${interval}`);
+        log.info(`Creating EMAIndicator for ${coinPair.symbol} (${nPeriods}) ${interval}`);
         const ema = new EMAIndicator(binance, coinPair, nPeriods, interval);
         await ema.init();
         return ema;
@@ -115,18 +116,19 @@ export class MultiEMAIndicator extends Indicator {
                 }
                 this.nUpdates ++;
                 if (this.nUpdates == this.lengths.length) {
-                    console.log('-----------------------------------');
-                    console.log(`Got all ${this.nUpdates} for ${this.currentTime}`);
+                    log.debug(`Got all ${this.nUpdates} for ${this.currentTime}`);
                     const slow = this.emas[0].data.getRecent(1, time)[0];
                     const fast = this.emas[this.emas.length - 1].data.getRecent(1, time)[0];
                     const lastState = this.state;
                     const cmp = fast.cmp(slow);
-                    console.log(fast.toString(), slow.toString(), cmp);
+                    log.debug(fast.toString(), slow.toString(), cmp);
                     if (cmp > 0) this.state = 'bullish';
                     else if (cmp < 0) this.state = 'bearish';
                     if (this.state !== lastState) {
-                        console.log(`**** switched to ${this.state} ***`);
-                        console.log(this.lengths);
+                        log.notify(`${this.coinPair.symbol}`
+                            + ` EMA(${this.lengths[0]}) and EMA(${this.lengths[this.lengths.length-1]})`
+                            + ` crossed on ${this.interval}.`
+                            + ` ${this.state=='bullish'?'Buy':'Sell'}!`);
                     }
                 }
             });

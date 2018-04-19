@@ -1,20 +1,18 @@
 import axios from 'axios';
 import https from 'https';
 
-import {TelegramBot} from './telegram.mjs';
 import {BinanceAccess, BinanceCommands} from './binance.mjs';
 import {MultiEMAIndicator} from './indicator.mjs';
+import {log} from './log';
 import {config} from './config.mjs';
 
 (async function main() {
-    console.log('Initialising Telegram bot');
-    const telegram = new TelegramBot();
-    //telegram.message("Channel now private");
-
-    console.log('Initialising exchange access');
+    log.info('Initialising exchange access');
     const binance = new BinanceAccess();
     await binance.init();
-    console.log('  Binance access initialised.');
+    log.info('  Binance access initialised.');
+
+    log.notify('Bot online.');
 
     await binance.loadAccount(config.accounts[0]);
 
