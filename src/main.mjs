@@ -11,14 +11,14 @@ import {config} from './config.mjs';
 
     log.notify('Bot online.');
 
-    await binance.loadAccount(config.accounts[0]);
+    const accountInfo = config.accounts[0];
+    await binance.loadAccount(accountInfo.name, accountInfo.key, accountInfo.secret);
 
-    log.debug(binance.coinPairs);
-    const nulsbtc = binance.coinPairs.get('NULS').get('BTC');
+    const nulsbtc = binance.getCoinPair('NULS','BTC');
     // eslint-disable-next-line no-unused-vars
     const multiEma = MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
 
-    const eosbtc = binance.coinPairs.get('EOS').get('BTC');
+    const eosbtc = binance.getCoinPair('EOS','BTC');
     // eslint-disable-next-line no-unused-vars
     const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, '15m', [55, 21, 13, 8]);
 })();

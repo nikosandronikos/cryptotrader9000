@@ -123,6 +123,8 @@ export class BinanceAccess {
         this.limits = null;
         this.accounts = new Map();
         this.streams = new StreamManager();
+        this.coinPairInfo = new Map();
+        this.coinPairs = new Map();
     }
 
     async apiCommand(cmd, params={}, account=null) {
@@ -201,30 +203,8 @@ export class BinanceAccess {
 
         if (info.exchangeFilters.length > 0) throw 'Exchange filters now present.';
 
-        // Init coin pairs we're interested in.
-        this.coinPairs = new Map();
-        for (const pair of this.config.coinList) {
-            log.debug(`Initialising ${pair}`);
-            const [base, quote] = pair.split(':');
-
-            if (!this.coinPairs.has(base)) this.coinPairs.set(base, new Map());
-
-            //FIXME: Data isn't arranged in a nicely accessible manner.
-            //May want to pre-process it to speed up load times in future.
-
-            let pairInfo = null;
-            for (const symbol of info.symbols) {
-                if (symbol.symbol == `${base}${quote}`) {
-                    pairInfo = symbol;
-                    break;
-                }
-            }
-
-            if (pairInfo === null) throw 'Unknown coin pair';
-
-            const coinPair =
-                await CoinPair.createAndLoadPriceData(this, base, quote, pairInfo);
-            this.coinPairs.get(base).set(quote, coinPair);
+        for (const pair of info.symbols) {
+            this.coinPairInfo.set(pair.symbol, pair);
         }
 
         return true;
@@ -240,5 +220,22 @@ export class BinanceAccess {
         const account = new Account(this, name, key, secret);
         this.accounts.set(name, account);
         await account.syncBalances();
+    }
+
+    getCoinPair(base, quote) {
+        const symbol = `${base}${quote}`;
+        if (!this.coinPairs.has(base)) this.coinPairs.set(base, new Map());
+        const baseMap = this.coinPairs.get(base);
+        if (!baseMap.has(quote)) {
+            if (!this.coinPairInfo.has(symbol)) {
+                throw new Error(`${symbol} not available on exchange`);
+            }
+            const coinPair = new CoinPair(
+                    this, base, quote, this.coinPairInfo.get(symbol)
+                );
+            baseMap.set(quote, coinPair);
+            return coinPair;
+        }
+        return baseMap.get(quote);
     }
 }
