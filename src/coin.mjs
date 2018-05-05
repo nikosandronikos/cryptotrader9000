@@ -33,21 +33,5 @@ export class CoinPair {
             }
         }
     }
-
-    async loadPriceData() {
-        // FIXME: Need to do something with this.
-        // eslint-disable-next-line no-unused-vars
-        const klines = await this._binance.apiCommand(BinanceCommands.klines, {
-            symbol: this.symbol,
-            interval: '1d',
-            limit: 2
-        });
-    }
-
-    static async createAndLoadPriceData(binanceAccess, base, quote, info) {
-        const cp = new CoinPair(binanceAccess, base, quote, info);
-        await cp.loadPriceData();
-        return cp;
-    }
 }
 
