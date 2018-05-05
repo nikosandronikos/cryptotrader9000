@@ -7,7 +7,6 @@ import {CoinPair} from './coin.mjs';
 import {Account} from './account.mjs';
 import {StreamManager} from './binancestream.mjs';
 import {log} from './log.mjs';
-import {config} from './config.mjs';
 
 export const BinanceCommands = {
     time: {
@@ -112,9 +111,10 @@ class Limits {
 }
 
 export class BinanceAccess {
-    constructor() {
+    constructor(config) {
         this.ready = false;
         this.base = 'https://api.binance.com/';
+        this.config = config;
         this._axiosInst = axios.create({
             baseURL: this.base,
             timeout: config.timeout
@@ -147,29 +147,27 @@ export class BinanceAccess {
             }
         }
 
-        const config = {params: params};
+        const requestConfig = {params: params};
 
         if (cmd.reqAuth) {
             if (account === null) throw `Account required for ${cmd.name}`;
-            config.headers = {'X-MBX-APIKEY': account.key};
+            requestConfig.headers = {'X-MBX-APIKEY': account.key};
             const totalParams = querystring.stringify(params);
             const hmac = crypto.createHmac('sha256', account.secret);
-            config.params.signature = hmac.update(totalParams).digest('hex');
+            requestConfig.params.signature = hmac.update(totalParams).digest('hex');
         }
 
-        return this._axiosInst.get(cmd.url, config)
+        return this._axiosInst.get(cmd.url, requestConfig)
             .then(response => {
                 log.info(
                     `${cmd.url} returned ${response.statusText} `+
                     `(${response.status})`
                 );
                 return response.data;
-                //log.debug(response.headers);
-                //log.debug('config:', response.config);
             })
             .catch(err => {
                 log.error(`${cmd.url} returned error.`);
-                log.debug('config:', config);
+                log.debug('requestConfig:', requestConfig);
                 if (err.response) {
                     log.error('response:', err.response.data);
                     log.debug(err.response.status);
@@ -181,7 +179,6 @@ export class BinanceAccess {
                 } else {
                     log.error('Error', err.message);
                 }
-                //log.debug('err.config:', err.config);
                 throw err;
             });
     }
@@ -206,7 +203,7 @@ export class BinanceAccess {
 
         // Init coin pairs we're interested in.
         this.coinPairs = new Map();
-        for (const pair of config.coinList) {
+        for (const pair of this.config.coinList) {
             log.debug(`Initialising ${pair}`);
             const [base, quote] = pair.split(':');
 
@@ -237,11 +234,11 @@ export class BinanceAccess {
         return Date.now();
     }
 
-    async loadAccount(config) {
+    async loadAccount(name, key, secret) {
         if (!this.ready) throw 'BinanceAccess not ready.';
-        if (this.accounts.has(config.name)) throw 'Account already exists.';
-        const account = new Account(this, config);
-        this.accounts.set(config.name, account);
+        if (this.accounts.has(name)) throw 'Account already exists.';
+        const account = new Account(this, name, key, secret);
+        this.accounts.set(name, account);
         await account.syncBalances();
     }
 }

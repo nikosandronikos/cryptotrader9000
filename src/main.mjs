@@ -5,7 +5,7 @@ import {config} from './config.mjs';
 
 (async function main() {
     log.info('Initialising exchange access');
-    const binance = new BinanceAccess();
+    const binance = new BinanceAccess(config);
     await binance.init();
     log.info('  Binance access initialised.');
 

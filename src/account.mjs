@@ -3,15 +3,15 @@ import {Coin} from './coin.mjs';
 import {log} from './log';
 
 export class Account {
-    constructor(binance, config) {
+    constructor(binance, name, key, secret) {
         // BinanceAccess instance.
         this.binance = binance;
         // A human readable name used to identify this account.
-        this.name = config.name;
+        this.name = name;
         // The accounts Binance API key.
-        this.key = config.key;
+        this.key = key;
         // The accounts Binance API key secret.
-        this.secret = config.secret;
+        this.secret = secret;
         // A map of coin name => Coin object pairs, initially populated
         // with all coins with a non zero balance.
         this.hodl = new Map();
