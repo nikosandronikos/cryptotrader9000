@@ -1,4 +1,3 @@
-import {BinanceCommands} from './binance.mjs';
 import {log} from './log';
 
 /**
@@ -35,7 +34,6 @@ export class Coin {
  */
 export class CoinPair {
     /**
-     * @param {BinanceAccess} binanceAccess To be removed
      * @param {string} base     The code representing the base coin.
      * @param {string} quote    The code representing the coin which
      *                          base is traded against.
@@ -43,8 +41,7 @@ export class CoinPair {
      *                          via BinanceCommands.exchangeInfo.
      * @throws {Error}          If trading is disabled on the exchange.
      */
-    constructor(binanceAccess, base, quote, info) {
-        this._binance = binanceAccess;
+    constructor(base, quote, info) {
         /**
          * The symbol used to represent the coin pair.
          */
