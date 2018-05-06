@@ -7,7 +7,16 @@ const Console = console;
  */
 class Log {
     constructor() {
-        this.telegram = new TelegramBot();
+        if (process.env.TELEGRAM_KEY !== undefined
+            &&
+            process.env.TELEGRAM_CHANNEL !== undefined
+        ) {
+            this.telegram = new TelegramBot(
+                process.env.TELEGRAM_KEY,
+                process.env.TELEGRAM_CHANNEL,
+                process.env.NET_REQUEST_TIMEOUT || 3000
+            );
+        }
     }
 
     error(message) {

@@ -6,12 +6,13 @@ import {log} from './log';
  * @access package
  */
 export class TelegramBot {
-    constructor() {
-        this.key = process.env.TELEGRAM_KEY;
+    constructor(key, channel, timeout=3000) {
+        this.key = key;
+        this.channel = channel;
         this.base = 'https://api.telegram.org/bot';
         this._axiosInst = axios.create({
             baseURL: this.base,
-            timeout: process.env.NET_REQUEST_TIMEOUT || 3000
+            timeout: timeout
         });
 
     }
@@ -20,7 +21,7 @@ export class TelegramBot {
         const url = `${this.base}${this.key}/sendMessage`;
         const cfg = {
             params: {
-                chat_id: process.env.TELEGRAM_CHANNEL,
+                chat_id: this.channel,
                 text: m,
                 disable_notification: true
             }

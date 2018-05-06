@@ -23,8 +23,8 @@ a '.env' file or within the OS environment:
 - BINANCEACCOUNT_NAME; A human readable name for the account
 - BINANCEACCOUNT_KEY; The account key from Binance
 - BINANCEACCOUNT_SECRET; The account key secret from Binance
-- TELEGRAM_KEY; A key for a telegram bot
-- TELEGRAM_CHANNEL; The telegram channel to send messages to
+- TELEGRAM_KEY; (optional) A key for a telegram bot
+- TELEGRAM_CHANNEL; (optional) The telegram channel to send messages to
 
 # Using the library
 *There is currently no mechanism to simply import this as a library into your
