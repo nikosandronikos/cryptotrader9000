@@ -234,7 +234,7 @@
           },
           {
             "type": "CommentBlock",
-            "value": "*\n * @access private\n ",
+            "value": "*\n * @access package\n ",
             "start": 195,
             "end": 221,
             "loc": {
@@ -7844,7 +7844,7 @@
             },
             {
               "type": "CommentBlock",
-              "value": "*\n * @access private\n ",
+              "value": "*\n * @access package\n ",
               "start": 195,
               "end": 221,
               "loc": {
@@ -7896,7 +7896,7 @@
           },
           {
             "type": "CommentBlock",
-            "value": "*\n * @access private\n ",
+            "value": "*\n * @access package\n ",
             "start": 195,
             "end": 221,
             "loc": {
@@ -7950,7 +7950,7 @@
     },
     {
       "type": "CommentBlock",
-      "value": "*\n * @access private\n ",
+      "value": "*\n * @access package\n ",
       "start": 195,
       "end": 221,
       "loc": {
@@ -8574,7 +8574,7 @@
     },
     {
       "type": "CommentBlock",
-      "value": "*\n * @access private\n ",
+      "value": "*\n * @access package\n ",
       "start": 195,
       "end": 221,
       "loc": {

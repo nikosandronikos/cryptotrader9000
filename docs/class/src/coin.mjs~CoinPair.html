@@ -39,9 +39,6 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
 </ul>
@@ -49,13 +46,13 @@
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {CoinPair} from &apos;<span><a href="file/src/coin.mjs.html#lineNumber12">cryptotrader9000/src/coin.mjs</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {CoinPair} from &apos;<span><a href="file/src/coin.mjs.html#lineNumber35">cryptotrader9000/src/coin.mjs</a></span>&apos;</code></pre></div>
   <span data-ice="access">public</span>
   <span data-ice="kind">class</span>
   
   
   
-  <span data-ice="source">| <span><a href="file/src/coin.mjs.html#lineNumber12">source</a></span></span>
+  <span data-ice="source">| <span><a href="file/src/coin.mjs.html#lineNumber35">source</a></span></span>
 </div>
 
 <div class="self-detail detail">
@@ -75,7 +72,9 @@
 
   
   
-  
+  <div class="description" data-ice="description"><p>A pair of coins that are traded against one another.
+E.g. BTCETH (Bitcoin / Ethereum).</p>
+</div>
   
 
   
@@ -107,7 +106,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">()</span>
+          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(base: <span>string</span>, quote: <span>string</span>, info: <span>object</span>)</span>
         </p>
       </div>
       <div>
@@ -232,41 +231,8 @@
       <div>
         
         
-        
-      </div>
-    </td>
-    <td>
-      
-      
-    </td>
-  </tr>
-</tbody>
-</table>
-<table class="summary" data-ice="summary">
-  <thead><tr><td data-ice="title" colspan="3">Private Members</td></tr></thead>
-  <tbody>
-  
-  <tr data-ice="target">
-    <td>
-      <span class="access" data-ice="access">private</span>
-      
-      
-      
-      <span class="override" data-ice="override"></span>
-    </td>
-    <td>
-      <div>
-        <p>
-          
-          
-          
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-member-_binance">_binance</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
-        </p>
-      </div>
-      <div>
-        
-        
-        
+        <div data-ice="description"><p>The symbol used to represent the coin pair.</p>
+</div>
       </div>
     </td>
     <td>
@@ -293,11 +259,11 @@
     
     
     
-    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">()</span>
+    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(base: <span>string</span>, quote: <span>string</span>, info: <span>object</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber13">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber44">source</a></span></span>
     </span>
   </h3>
 
@@ -308,7 +274,40 @@
 
   
 
-  <div data-ice="properties">
+  <div data-ice="properties"><div data-ice="properties">
+  <h4 data-ice="title">Params:</h4>
+  <table class="params">
+    <thead>
+    <tr><td>Name</td><td>Type</td><td>Attribute</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+    
+    <tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">base</td>
+      <td data-ice="type" class="code"><span>string</span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>The code representing the base coin.</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">quote</td>
+      <td data-ice="type" class="code"><span>string</span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>The code representing the coin which
+                         base is traded against.</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">info</td>
+      <td data-ice="type" class="code"><span>object</span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>The coin information obtained from Binance
+                         via BinanceCommands.exchangeInfo.</p>
+</td>
+    </tr>
+</tbody>
+  </table>
+</div>
 </div>
 
   
@@ -317,7 +316,19 @@
 
   
 
-  
+  <div data-ice="throwWrap">
+    <h4>Throw:</h4>
+    <table>
+      <tbody>
+      
+      <tr class="throw" data-ice="throw">
+        <td><p data-ice="throwName"><span>Error</span></p></td>
+        <td data-ice="throwDesc"><p>If trading is disabled on the exchange.</p>
+</td>
+      </tr>
+</tbody>
+    </table>
+  </div>
 
   
 
@@ -343,7 +354,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber27">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber60">source</a></span></span>
     </span>
   </h3>
 
@@ -386,7 +397,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber30">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber63">source</a></span></span>
     </span>
   </h3>
 
@@ -429,7 +440,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber24">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber57">source</a></span></span>
     </span>
   </h3>
 
@@ -472,59 +483,15 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber15">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber48">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
-
-  
-
-  <div data-ice="properties">
+  <div data-ice="description"><p>The symbol used to represent the coin pair.</p>
 </div>
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-  
-</div>
-<h2 data-ice="title">Private Members</h2>
-
-<div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-_binance">
-    <span class="access" data-ice="access">private</span>
-    
-    
-    
-    
-    
-    <span class="code" data-ice="name">_binance</span><span class="code" data-ice="signature">: <span>*</span></span>
-    <span class="right-info">
-      
-      
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber14">source</a></span></span>
-    </span>
-  </h3>
-
-  
-  
-  
-  
 
   
 

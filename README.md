@@ -8,7 +8,7 @@ A very basic rule based trading bot for Binance. For fun, not profit.
 2. Install dependencies with
 ```npm install``` or ```npm install --production```
 
-3. Set environment variables (see [Environment Variables])
+3. Set environment variables (see [Environment Variables](#Environment Variables))
 
 3. Run the test bot with
 ```npm start```
@@ -17,7 +17,7 @@ A very basic rule based trading bot for Binance. For fun, not profit.
 command, the '`--experimental-modules`' flag is required to enable ES6
 module support in NodeJS.*
 
-### Environment variables
+### Environment Variables
 The following environment variables are required. They may be configured in
 a '.env' file or within the OS environment:
 - BINANCEACCOUNT_NAME; A human readable name for the account

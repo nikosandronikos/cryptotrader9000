@@ -1,7 +1,7 @@
 {
-  "coverage": "25.51%",
+  "coverage": "32.65%",
   "expectCount": 98,
-  "actualCount": 25,
+  "actualCount": 32,
   "files": {
     "src/account.mjs": {
       "expectCount": 8,
@@ -48,21 +48,13 @@
       ]
     },
     "src/coin.mjs": {
-      "expectCount": 12,
-      "actualCount": 0,
+      "expectCount": 11,
+      "actualCount": 7,
       "undocumentLines": [
-        4,
-        5,
-        6,
-        7,
-        8,
-        12,
-        13,
-        14,
-        15,
-        24,
-        27,
-        30
+        16,
+        57,
+        60,
+        63
       ]
     },
     "src/indicator.mjs": {
@@ -98,13 +90,13 @@
       "actualCount": 1,
       "undocumentLines": [
         3,
-        32,
+        41,
         9,
-        10,
-        13,
-        18,
-        23,
-        27
+        14,
+        22,
+        27,
+        32,
+        36
       ]
     },
     "src/observable.mjs": {
@@ -113,14 +105,15 @@
       "undocumentLines": []
     },
     "src/telegram.mjs": {
-      "expectCount": 6,
+      "expectCount": 7,
       "actualCount": 1,
       "undocumentLines": [
         9,
         10,
         11,
         12,
-        19
+        13,
+        20
       ]
     },
     "src/timeseries.mjs": {

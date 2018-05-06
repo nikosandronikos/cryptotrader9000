@@ -39,9 +39,6 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
 </ul>
@@ -55,7 +52,7 @@
 <li><p>Install dependencies with
 <code>npm install</code> or <code>npm install --production</code></p>
 </li>
-<li><p>Set environment variables (see [Environment Variables])</p>
+<li><p>Set environment variables (see <a href="#Environment Variables">Environment Variables</a>)</p>
 </li>
 <li><p>Run the test bot with
 <code>npm start</code></p>
@@ -64,14 +61,14 @@
 <p><strong>Note</strong> <em>, if running nodejs directly rather than via the &apos;<code>npm start</code>&apos;
 command, the &apos;<code>--experimental-modules</code>&apos; flag is required to enable ES6
 module support in NodeJS.</em></p>
-<h3 id="environment-variables">Environment variables</h3><p>The following environment variables are required. They may be configured in
+<h3 id="environment-variables">Environment Variables</h3><p>The following environment variables are required. They may be configured in
 a &apos;.env&apos; file or within the OS environment:</p>
 <ul>
 <li>BINANCEACCOUNT_NAME; A human readable name for the account</li>
 <li>BINANCEACCOUNT_KEY; The account key from Binance</li>
 <li>BINANCEACCOUNT_SECRET; The account key secret from Binance</li>
-<li>TELEGRAM_KEY; A key for a telegram bot</li>
-<li>TELEGRAM_CHANNEL; The telegram channel to send messages to</li>
+<li>TELEGRAM_KEY; (optional) A key for a telegram bot</li>
+<li>TELEGRAM_CHANNEL; (optional) The telegram channel to send messages to</li>
 </ul>
 <h1 id="using-the-library">Using the library</h1><p><em>There is currently no mechanism to simply import this as a library into your
 own packages. In the future this module will be available via NPM.</em></p>

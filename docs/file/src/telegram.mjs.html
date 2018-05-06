@@ -39,9 +39,6 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
 </ul>
@@ -54,15 +51,16 @@
 import {log} from &apos;./log&apos;;
 
 /**
- * @access private
+ * @access package
  */
 export class TelegramBot {
-    constructor() {
-        this.key = process.env.TELEGRAM_KEY;
+    constructor(key, channel, timeout=3000) {
+        this.key = key;
+        this.channel = channel;
         this.base = &apos;https://api.telegram.org/bot&apos;;
         this._axiosInst = axios.create({
             baseURL: this.base,
-            timeout: process.env.NET_REQUEST_TIMEOUT || 3000
+            timeout: timeout
         });
 
     }
@@ -71,7 +69,7 @@ export class TelegramBot {
         const url = `${this.base}${this.key}/sendMessage`;
         const cfg = {
             params: {
-                chat_id: process.env.TELEGRAM_CHANNEL,
+                chat_id: this.channel,
                 text: m,
                 disable_notification: true
             }

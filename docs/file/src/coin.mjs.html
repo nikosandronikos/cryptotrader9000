@@ -39,9 +39,6 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
 </ul>
@@ -49,20 +46,53 @@
 </nav>
 
 <div class="content" data-ice="content"><h1 data-ice="title">src/coin.mjs</h1>
-<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import {BinanceCommands} from &apos;./binance.mjs&apos;;
-import {log} from &apos;./log&apos;;
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import {log} from &apos;./log&apos;;
 
+/**
+ * A representation of a coin and value held in that coin.
+ * @access public
+ */
 export class Coin {
+    /**
+     * @param {string} name         The name of the coin.
+     * @param {number} initialFree  The initial amount of free, or available
+     *                              value of the coin.
+     * @param {number} initialLocked The initial amount of locked, or
+     *                              un-available value of the coin.
+     */
     constructor(name, initialFree=0, initialLocked=0) {
         this.name = name;
+        /**
+         * A quantity of this coin that is available for trading.
+         */
         this.free = initialFree;
+        /**
+         * A quantity of this coin that is un-available for trading,
+         * usually because it is locked up in existing trades that are
+         * on the order book.
+         */
         this.locked = initialLocked;
     }
 }
 
+/**
+ * A pair of coins that are traded against one another.
+ * E.g. BTCETH (Bitcoin / Ethereum).
+ * @access public
+ */
 export class CoinPair {
-    constructor(binanceAccess, base, quote, info) {
-        this._binance = binanceAccess;
+    /**
+     * @param {string} base     The code representing the base coin.
+     * @param {string} quote    The code representing the coin which
+     *                          base is traded against.
+     * @param {object} info     The coin information obtained from Binance
+     *                          via BinanceCommands.exchangeInfo.
+     * @throws {Error}          If trading is disabled on the exchange.
+     */
+    constructor(base, quote, info) {
+        /**
+         * The symbol used to represent the coin pair.
+         */
         this.symbol = `${base}${quote}`;
 
         log.debug(info);
