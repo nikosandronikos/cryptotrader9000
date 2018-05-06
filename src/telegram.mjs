@@ -1,15 +1,14 @@
 import axios from 'axios';
 
 import {log} from './log';
-import {config} from './config.mjs';
 
 export class TelegramBot {
     constructor() {
-        this.key = config.telegram.key;
+        this.key = process.env.TELEGRAM_KEY;
         this.base = 'https://api.telegram.org/bot';
         this._axiosInst = axios.create({
             baseURL: this.base,
-            timeout: config.timeout
+            timeout: process.env.NET_REQUEST_TIMEOUT || 3000
         });
 
     }
@@ -18,7 +17,7 @@ export class TelegramBot {
         const url = `${this.base}${this.key}/sendMessage`;
         const cfg = {
             params: {
-                chat_id: config.telegram.channel,
+                chat_id: process.env.TELEGRAM_CHANNEL,
                 text: m,
                 disable_notification: true
             }

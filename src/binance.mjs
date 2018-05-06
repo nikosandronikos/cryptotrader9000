@@ -111,13 +111,12 @@ class Limits {
 }
 
 export class BinanceAccess {
-    constructor(config) {
+    constructor(timeout=3000) {
         this.ready = false;
         this.base = 'https://api.binance.com/';
-        this.config = config;
         this._axiosInst = axios.create({
             baseURL: this.base,
-            timeout: config.timeout
+            timeout: timeout
         });
         this.ready = false;
         this.limits = null;

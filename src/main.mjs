@@ -1,18 +1,20 @@
 import {BinanceAccess} from './binance.mjs';
 import {MultiEMAIndicator} from './indicator.mjs';
 import {log} from './log';
-import {config} from './config.mjs';
 
 (async function main() {
     log.info('Initialising exchange access');
-    const binance = new BinanceAccess(config);
+    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);
     await binance.init();
     log.info('  Binance access initialised.');
 
     log.notify('Bot online.');
 
-    const accountInfo = config.accounts[0];
-    await binance.loadAccount(accountInfo.name, accountInfo.key, accountInfo.secret);
+    await binance.loadAccount(
+        process.env.BINANCEACCOUNT_NAME,
+        process.env.BINANCEACCOUNT_KEY,
+        process.env.BINANCEACCOUNT_SECRET
+    );
 
     const nulsbtc = binance.getCoinPair('NULS','BTC');
     // eslint-disable-next-line no-unused-vars
