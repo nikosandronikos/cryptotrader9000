@@ -285,7 +285,9 @@ export class BinanceAccess {
     }
 
     /**
-     * Get a CoinPair object for the given two coins.
+     * Get a CoinPair object for the given two coins. Using this method
+     * is preferable to directly creating a CoinPair as it is safer and
+     * avoids duplication.
      * @param {string} base     The code representing the base coin.
      * @param {string} quote    The code representing the coin which
      *                          base is traded against.
