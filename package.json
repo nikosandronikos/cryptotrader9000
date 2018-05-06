@@ -10,6 +10,8 @@
     "ws": "^5.1.0"
   },
   "devDependencies": {
+    "esdoc": "^1.1.0",
+    "esdoc-standard-plugin": "^1.0.0",
     "eslint": "^4.19.1",
     "faucet": "0.0.1",
     "tape": "^4.9.0"
@@ -17,7 +19,8 @@
   "scripts": {
     "start": "node --experimental-modules -r dotenv/config src/main.mjs",
     "test": "node --experimental-modules test/all.mjs | faucet",
-    "lint": "./node_modules/.bin/eslint src/*.mjs"
+    "lint": "./node_modules/.bin/eslint src/*.mjs",
+    "docs": "./node_modules/.bin/esdoc"
   },
   "repository": {
     "type": "git",

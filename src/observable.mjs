@@ -1,3 +1,6 @@
+/**
+ * @package
+ */
 export const ObservableMixin = superclass => class extends superclass {
     constructor() {
         super(...arguments);

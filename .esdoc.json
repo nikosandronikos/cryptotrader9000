@@ -1,0 +1,11 @@
+{
+    "source": "./src",
+    "includes": ["\\.mjs$"],
+    "destination": "./docs",
+    "plugins": [{
+        "name": "esdoc-standard-plugin",
+        "lint": {"enable": true},
+        "coverage": {"enable": true},
+        "accessor": {"access": ["public"]}
+    }]
+}

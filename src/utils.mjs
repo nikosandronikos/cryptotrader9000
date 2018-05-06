@@ -1,5 +1,8 @@
 /* eslint-disable no-fallthrough */
 
+/**
+ * @access package
+ */
 export function intervalToMs(intervalStr, multiplier=1) {
     switch (intervalStr) {
         case 'M':
@@ -19,9 +22,12 @@ export function intervalToMs(intervalStr, multiplier=1) {
     }
 }
 
-// A chart interval string is a number followed by a time period.
-// Where time period may be any of:
-//   m -> minutes; h -> hours; d -> days; w -> weeks; M -> months
+/**
+ * A chart interval string is a number followed by a time period.
+ * Where time period may be any of:
+ * m -> minutes; h -> hours; d -> days; w -> weeks; M -> months
+ * @access package
+ */
 export function chartIntervalToMs(intervalStr) {
     const result = intervalStr.match(/^([\d]+)([mhdwM])$/);
     if (result === null) {

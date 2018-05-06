@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl">
+  <title data-ice="title">Home | cryptotrader9000</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+<meta name="description" content="A very basic rule based trading bot for Binance. For fun, not profit."><meta property="twitter:card" content="summary"><meta property="twitter:title" content="cryptotrader9000"><meta property="twitter:description" content="A very basic rule based trading bot for Binance. For fun, not profit."></head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+<a style="position:relative; top:3px;" href="https://github.com/nikosandronikos/cryptotrader9000"><img width="20px" src="./image/github.png"></a></header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStream.html">BinanceStream</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamDepth.html">BinanceStreamDepth</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamKlines.html">BinanceStreamKlines</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamTicker.html">BinanceStreamTicker</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/coin.mjs~Coin.html">Coin</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><div data-ice="index" class="github-markdown"><h1 id="cryptotrader9000">cryptotrader9000</h1><p>A very basic rule based trading bot for Binance. For fun, not profit.</p>
+<h1 id="setting-up-and-running-the-test-bot">Setting up and running the test bot</h1><ol>
+<li><p><code>git clone https://github.com/nikosandronikos/cryptotrader9000.git</code></p>
+</li>
+<li><p>Install dependencies with
+<code>npm install</code> or <code>npm install --production</code></p>
+</li>
+<li><p>Set environment variables (see [Environment Variables])</p>
+</li>
+<li><p>Run the test bot with
+<code>npm start</code></p>
+</li>
+</ol>
+<p><strong>Note</strong> <em>, if running nodejs directly rather than via the &apos;<code>npm start</code>&apos;
+command, the &apos;<code>--experimental-modules</code>&apos; flag is required to enable ES6
+module support in NodeJS.</em></p>
+<h3 id="environment-variables">Environment variables</h3><p>The following environment variables are required. They may be configured in
+a &apos;.env&apos; file or within the OS environment:</p>
+<ul>
+<li>BINANCEACCOUNT_NAME; A human readable name for the account</li>
+<li>BINANCEACCOUNT_KEY; The account key from Binance</li>
+<li>BINANCEACCOUNT_SECRET; The account key secret from Binance</li>
+<li>TELEGRAM_KEY; A key for a telegram bot</li>
+<li>TELEGRAM_CHANNEL; The telegram channel to send messages to</li>
+</ul>
+<h1 id="using-the-library">Using the library</h1><p><em>There is currently no mechanism to simply import this as a library into your
+own packages. In the future this module will be available via NPM.</em></p>
+<p>The initial entry point is the <a href="https://nikosandronikos.github.io/cryptotrader9000/class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a> class.</p>
+<p>Full documentation is available at:
+<a href="https://nikosandronikos.github.io/cryptotrader9000/">https://nikosandronikos.github.io/cryptotrader9000/</a></p>
+<h1 id="tests">Tests</h1><p><a href="https://travis-ci.org/nikosandronikos/cryptotrader9000"><img src="https://travis-ci.org/nikosandronikos/cryptotrader9000.svg?branch=master" alt="Build Status"></a></p>
+<p>Run the tests with
+<code>npm test</code></p>
+</div>
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

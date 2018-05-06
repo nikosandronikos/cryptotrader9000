@@ -4,6 +4,9 @@ import {ObservableMixin} from './observable';
 // Assumes data will be added for all intervals, so we're not optimising for
 // space wrt missing data.
 
+/**
+ * @access package
+ */
 export class TimeSeriesData extends ObservableMixin(Object) {
     // Interval is the interval for data samples.
     constructor(interval) {

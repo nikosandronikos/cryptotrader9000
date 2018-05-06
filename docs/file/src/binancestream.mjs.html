@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../">
+  <title data-ice="title">src/binancestream.mjs | cryptotrader9000</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+<meta name="description" content="A very basic rule based trading bot for Binance. For fun, not profit."><meta property="twitter:card" content="summary"><meta property="twitter:title" content="cryptotrader9000"><meta property="twitter:description" content="A very basic rule based trading bot for Binance. For fun, not profit."></head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+<a style="position:relative; top:3px;" href="https://github.com/nikosandronikos/cryptotrader9000"><img width="20px" src="./image/github.png"></a></header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStream.html">BinanceStream</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamDepth.html">BinanceStreamDepth</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamKlines.html">BinanceStreamKlines</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamTicker.html">BinanceStreamTicker</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/coin.mjs~Coin.html">Coin</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/binancestream.mjs</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import {BinanceCommands} from &apos;./binance.mjs&apos;;
+import {ObservableMixin} from &apos;./observable&apos;;
+import {TimeSeriesData} from &apos;./timeseries&apos;;
+import {log} from &apos;./log&apos;;
+
+import Big from &apos;big.js&apos;;
+import WebSocket from &apos;ws&apos;;
+
+/**
+ * @access Public
+ */
+export const BinanceStreams = {
+    // Binance docs indicate klines stream will update every second
+    // but it appears to only update when a trade occurs.
+    klines: {
+        name: &apos;klines&apos;,
+        streamName: &apos;${symbol}@kline_${interval}&apos;,
+        reqParams: [&apos;interval&apos;, &apos;symbol&apos;]
+    },
+    // Streams at 1Hz pretty consistently
+    ticker: {
+        name: &apos;ticker&apos;,
+        streamName: &apos;${symbol}@ticker&apos;,
+        reqParams: [&apos;symbol&apos;]
+    },
+    depth: {
+        name: &apos;depth&apos;,
+        streamName: &apos;${symbol}@depth&apos;,
+        reqParams: [&apos;symbol&apos;]
+    }
+};
+
+/**
+ * Maintains WebSocket connections to the Binance stream API.
+ * @access Public
+ */
+export class StreamManager extends ObservableMixin(Object) {
+    constructor() {
+        super();
+        this.base = &apos;wss://stream.binance.com:9443&apos;;
+        this.streams = new Map();
+        this.ws = null;
+        this.messageListener = null;
+    }
+
+    /**
+     * Open a stream.
+     * config is an object from BinanceStreams.
+     * messageListener is called each time data is received.
+     */
+    async openStream(config, params={}, messageListener) {
+        // FIXME: WSS connections will be disconnected after 24 hours. Need
+        //        to handle reconnection.
+        let paramsOk = true;
+        let missing = [];
+        for (const param of config.reqParams) {
+            if (!params.hasOwnProperty(param)) {
+                paramsOk = false;
+                missing.push(param);
+            }
+        }
+        if (!paramsOk) {
+            throw `${config.name} missing parameters: ${missing.join()}`;
+        }
+
+        // Binance api wants lower case coinpairs in URIs
+        params.symbol = params.symbol.toLowerCase();
+
+        // Replaces sections of streamName denoted with ${} with
+        // the value of the config parameter named within the curly
+        // braces.
+        const name = config.streamName.replace(/\${([a-z]+)}/g,
+            (match) =&gt; params[match.slice(2,-1)]
+        );
+
+        let streamDefn = null;
+        if (this.streams.has(name)) {
+            streamDefn = this.streams.get(name);
+        } else {
+            streamDefn = {listeners: []};
+            this.streams.set(name, streamDefn);
+            await this._createCombinedStream();
+        }
+        streamDefn.listeners.push(messageListener);
+    }
+
+    _closeCombinedStream() {
+        if (this.messageListener) {
+            this.ws.removeEventListener(this.messageListener);
+            this.messageListener = null;
+        }
+        this.ws.close();
+    }
+
+    async _createCombinedStream() {
+        const addr =
+            `${this.base}/stream?streams=${[...this.streams.keys()].join(&apos;/&apos;)}`;
+
+        log.debug(`Opening WebSocket ${addr}`);
+
+        if (this.ws) {
+            log.debug(&apos;  Closing existing connection.&apos;);
+            this._closeCombinedStream();
+        }
+
+        return new Promise((resolve, reject) =&gt; {
+            const ws = new WebSocket(addr);
+            ws.onopen = () =&gt; {
+                log.debug(&apos;Stream created and ready.&apos;);
+                this.messageListener =
+                    ws.addEventListener(&apos;message&apos;, (message) =&gt; {
+                        const full = JSON.parse(message.data);
+                        const data = full.data;
+                        const stream = this.streams.get(full.stream);
+                        for (const listener of stream.listeners) {
+                            listener(data);
+                        }
+                    });
+                ws.on(&apos;close&apos;, (code, reason) =&gt; {
+                    log.debug(`WebSocket closed. ${reason} (${code}).`);
+                });
+                this.ws = ws;
+                resolve(ws);
+            };
+            ws.onerror = (err) =&gt; reject(err);
+        });
+    }
+}
+
+/**
+ * @access private
+ */
+const klinesStreamToRestMap = new Map([[&apos;k.t&apos;, 0], [&apos;k.o&apos;, 1], [&apos;k.h&apos;, 2], [&apos;k.l&apos;, 3], [&apos;k.c&apos;, 4], [&apos;k.v&apos;, 5], [&apos;k.T&apos;, 6], [&apos;k.q&apos;, 7], [&apos;k.n&apos;, 8], [&apos;k.V&apos;, 9], [&apos;k.Q&apos;, 10]]);
+
+/**
+ * @access public
+ */
+class BinanceStream extends ObservableMixin(Object) {
+    constructor(binance, type, symbol, attr) {
+        super();
+        this.binance = binance;
+        this.type = type;
+        this.symbol = symbol;
+        this.attr = attr;
+        this.stream = null;
+        // The required attribute is specified using dot notation.
+        // E.g. &apos;kline.close&apos;.
+        // This code to extract that attribute from the dictionary is a bit
+        // tricky, but basically each element of the array
+        // is a key, on each iteration of reduce we return
+        // the object referenced by that key.
+        this._getAttrData = (data) =&gt; attr.split(&apos;.&apos;).reduce((a,v) =&gt; a[v], data);
+    }
+
+    static async create(binance, type, symbol, attr) {
+        const stream = new BinanceStream(binance, type, symbol, attr);
+        stream.stream = await binance.streams.openStream(
+            type,
+            {symbol: symbol},
+            (data) =&gt; {
+                stream.notifyObservers(
+                    &apos;newData&apos;,
+                    data.E,
+                    Big(stream._getAttrData(data))
+                );
+            }
+        );
+        return stream;
+    }
+}
+
+/**
+ * @access public
+ */
+export class BinanceStreamKlines extends BinanceStream {
+    constructor(binance, type, symbol, interval, attr) {
+        super(binance, type, symbol, attr);
+        this.interval = interval;
+    }
+
+    static async create(binance, symbol, interval, attr) {
+        const stream = new BinanceStreamKlines(
+            binance, BinanceStreams.klines, symbol, interval, attr
+        );
+        stream.stream = await binance.streams.openStream(
+            stream.type,
+            {symbol: symbol, interval: interval},
+            (data) =&gt; {
+                stream.notifyObservers(
+                    &apos;newData&apos;,
+                    data.k.t,
+                    Big(stream._getAttrData(data))
+                );
+            }
+        );
+        return stream;
+    }
+
+    async getHistory(length) {
+        const history = new TimeSeriesData(this.interval);
+        const klines = await this.binance.apiCommand(
+            BinanceCommands.klines,
+            {
+                symbol:   this.symbol,
+                interval: this.interval,
+                limit:    length
+            }
+        );
+        let lastTime = 0;
+        for (const kline of klines) {
+            if (kline[0] &lt; lastTime) throw &apos;Klines not oldest to newest.&apos;;
+            lastTime = kline[0];
+            const attrIndex = klinesStreamToRestMap.get(this.attr);
+            const data = Big(kline[attrIndex]);
+            history.addData(lastTime, data);
+        }
+
+        return history;
+    }
+}
+
+/**
+ * @access public
+ */
+export class BinanceStreamTicker extends BinanceStream {
+    // eslint-disable-next-line no-unused-vars
+    getHistory(length) {
+        const history = new TimeSeriesData(this.interval);
+        // FIXME: TODO
+        throw &apos;Not implemented&apos;;
+        // eslint-disable-next-line no-unreachable
+        return history;
+    }
+}
+
+/**
+ * @access private
+ */
+// eslint-disable-next-line no-unused-vars
+const tickerStreamToRestMap = new Map();
+
+/**
+ * @access public
+ */
+export class BinanceStreamDepth extends BinanceStream {
+    // eslint-disable-next-line no-unused-vars
+    getHistory(length) {
+        const history = new TimeSeriesData(this.interval);
+        // FIXME: TODO
+        throw &apos;Not implemented&apos;;
+        // eslint-disable-next-line no-unreachable
+        return history;
+    }
+}
+
+/**
+ * @access private
+ */
+// eslint-disable-next-line no-unused-vars
+const depthStreamToRestMap = new Map();
+
+
+</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

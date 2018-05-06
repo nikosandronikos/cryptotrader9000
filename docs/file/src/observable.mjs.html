@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../">
+  <title data-ice="title">src/observable.mjs | cryptotrader9000</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+<meta name="description" content="A very basic rule based trading bot for Binance. For fun, not profit."><meta property="twitter:card" content="summary"><meta property="twitter:title" content="cryptotrader9000"><meta property="twitter:description" content="A very basic rule based trading bot for Binance. For fun, not profit."></head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+<a style="position:relative; top:3px;" href="https://github.com/nikosandronikos/cryptotrader9000"><img width="20px" src="./image/github.png"></a></header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStream.html">BinanceStream</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamDepth.html">BinanceStreamDepth</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamKlines.html">BinanceStreamKlines</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/binancestream.mjs~BinanceStreamTicker.html">BinanceStreamTicker</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/coin.mjs~Coin.html">Coin</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/observable.mjs</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">/**
+ * @package
+ */
+export const ObservableMixin = superclass =&gt; class extends superclass {
+    constructor() {
+        super(...arguments);
+        this.observers = {};
+
+    }
+
+    addObserver(event, fn, useThis, ctxt) {
+        const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);
+        if (this.observers.hasOwnProperty(event)) {
+            this.observers[event].append(boundFn);
+            return;
+        }
+        this.observers[event] = [boundFn];
+    }
+
+    notifyObservers(event, ...args) {
+        if (!this.observers.hasOwnProperty(event))
+            return;
+
+        for (let observer of this.observers[event]) {
+            observer(...args);
+        }
+    }
+};
+
+/**************************************************************************
+    How to use:
+
+    class Player extends ObservableMixin(Object) {
+        constructor(maxHP) {
+            super();
+            this.hp = maxHP;
+        }
+
+        dmg(value) {
+            const oldHP = this.hp;
+            this.hp -= value;
+            if (this.hp &lt;= 0) {
+                this.notifyObserver(&apos;death&apos;, oldHP, this.hp);
+                return;
+            }
+            this.notifyObserver(&apos;damage&apos;, oldHP, this.hp);
+        }
+    }
+
+    class A {
+        constructor() {
+            this.players = [new Player(100), new Player(60)];
+            this.players[0].addObserver(&apos;death&apos;, this.playerDied, this, 0);
+            this.players[0].addObserver(&apos;damage&apos;, this.playerDamaged, this, 0);
+            this.players[1].addObserver(&apos;death&apos;, this.playerDied, this, 1);
+            this.players[1].addObserver(&apos;damage&apos;, this.playerDamaged, this, 1);
+        }
+
+        playerDied(playerIndex, oldValue, newValue) {
+            console.log(`player ${playerIndex} took ${oldValue - newValue} damage and died.`);
+            this.players.splice(playerIndex, 1);
+        }
+
+        playerDamaged(playerIndex, oldValue, newValue) {
+            console.log(`player ${playerIndex} took ${oldValue - newValue} damage.`);
+        }
+    }
+
+    const a = new A();
+
+    while (a.players.length &gt; 0) {
+        for (player of a.players) {
+            player.dmg(10);
+        }
+    }
+**************************************************************************/
+</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.1.0)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

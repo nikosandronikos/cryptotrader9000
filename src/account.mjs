@@ -2,6 +2,9 @@ import {BinanceCommands} from './binance.mjs';
 import {Coin} from './coin.mjs';
 import {log} from './log';
 
+/**
+ * @access Public
+ */
 export class Account {
     constructor(binance, name, key, secret) {
         // BinanceAccess instance.

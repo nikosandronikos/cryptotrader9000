@@ -2,6 +2,9 @@ import {TelegramBot} from './telegram.mjs';
 
 const Console = console;
 
+/**
+ * @access package
+ */
 class Log {
     constructor() {
         this.telegram = new TelegramBot();

@@ -2,6 +2,9 @@ import axios from 'axios';
 
 import {log} from './log';
 
+/**
+ * @access package
+ */
 export class TelegramBot {
     constructor() {
         this.key = process.env.TELEGRAM_KEY;

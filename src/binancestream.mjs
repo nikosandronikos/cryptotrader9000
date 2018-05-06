@@ -6,6 +6,9 @@ import {log} from './log';
 import Big from 'big.js';
 import WebSocket from 'ws';
 
+/**
+ * @access Public
+ */
 export const BinanceStreams = {
     // Binance docs indicate klines stream will update every second
     // but it appears to only update when a trade occurs.
@@ -27,9 +30,10 @@ export const BinanceStreams = {
     }
 };
 
-// Maintains WebSocket connections to the Binance stream API.
-// FIXME: WSS connections will be disconnected after 24 hours. Need
-//        to handle reconnection.
+/**
+ * Maintains WebSocket connections to the Binance stream API.
+ * @access Public
+ */
 export class StreamManager extends ObservableMixin(Object) {
     constructor() {
         super();
@@ -39,10 +43,14 @@ export class StreamManager extends ObservableMixin(Object) {
         this.messageListener = null;
     }
 
-    // Open a stream.
-    // config is an object from BinanceStreams.
-    // messageListener is called each time data is received.
+    /**
+     * Open a stream.
+     * config is an object from BinanceStreams.
+     * messageListener is called each time data is received.
+     */
     async openStream(config, params={}, messageListener) {
+        // FIXME: WSS connections will be disconnected after 24 hours. Need
+        //        to handle reconnection.
         let paramsOk = true;
         let missing = [];
         for (const param of config.reqParams) {
@@ -119,8 +127,14 @@ export class StreamManager extends ObservableMixin(Object) {
     }
 }
 
+/**
+ * @access private
+ */
 const klinesStreamToRestMap = new Map([['k.t', 0], ['k.o', 1], ['k.h', 2], ['k.l', 3], ['k.c', 4], ['k.v', 5], ['k.T', 6], ['k.q', 7], ['k.n', 8], ['k.V', 9], ['k.Q', 10]]);
 
+/**
+ * @access public
+ */
 class BinanceStream extends ObservableMixin(Object) {
     constructor(binance, type, symbol, attr) {
         super();
@@ -155,6 +169,9 @@ class BinanceStream extends ObservableMixin(Object) {
     }
 }
 
+/**
+ * @access public
+ */
 export class BinanceStreamKlines extends BinanceStream {
     constructor(binance, type, symbol, interval, attr) {
         super(binance, type, symbol, attr);
@@ -202,6 +219,9 @@ export class BinanceStreamKlines extends BinanceStream {
     }
 }
 
+/**
+ * @access public
+ */
 export class BinanceStreamTicker extends BinanceStream {
     // eslint-disable-next-line no-unused-vars
     getHistory(length) {
@@ -213,9 +233,15 @@ export class BinanceStreamTicker extends BinanceStream {
     }
 }
 
+/**
+ * @access private
+ */
 // eslint-disable-next-line no-unused-vars
 const tickerStreamToRestMap = new Map();
 
+/**
+ * @access public
+ */
 export class BinanceStreamDepth extends BinanceStream {
     // eslint-disable-next-line no-unused-vars
     getHistory(length) {
@@ -227,6 +253,9 @@ export class BinanceStreamDepth extends BinanceStream {
     }
 }
 
+/**
+ * @access private
+ */
 // eslint-disable-next-line no-unused-vars
 const depthStreamToRestMap = new Map();
 
