@@ -2,3 +2,4 @@ src/config.mjs
 node_modules
 *.swp
 .env
+.agignore
