@@ -24,7 +24,7 @@ export class Account {
         const info = await this.binance.apiCommand(
             BinanceCommands.accountInfo,
             {timestamp: this.binance.getTimestamp()},
-            this
+            this.name
         );
 
         for (const coinInfo of info.balances) {

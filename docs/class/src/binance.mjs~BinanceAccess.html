@@ -379,7 +379,7 @@ Each application requires at least one instance of this class.</p>
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/binance.mjs~BinanceAccess.html#instance-method-apiCommand">apiCommand</a></span></span><span class="code" data-ice="signature">(cmd: <span>object</span>, params: <span>object</span>, account: <span>Account</span>): <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/binance.mjs~BinanceAccess.html#instance-method-apiCommand">apiCommand</a></span></span><span class="code" data-ice="signature">(cmd: <span>object</span>, params: <span>object</span>, accountName: <span>string</span>): <span>*</span></span>
         </p>
       </div>
       <div>
@@ -944,11 +944,11 @@ via this constructor will need init() called before use.</p>
     
     <span data-ice="async">async</span>
     
-    <span class="code" data-ice="name">apiCommand</span><span class="code" data-ice="signature">(cmd: <span>object</span>, params: <span>object</span>, account: <span>Account</span>): <span>*</span></span>
+    <span class="code" data-ice="name">apiCommand</span><span class="code" data-ice="signature">(cmd: <span>object</span>, params: <span>object</span>, accountName: <span>string</span>): <span>*</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber173">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber177">source</a></span></span>
     </span>
   </h3>
 
@@ -987,11 +987,12 @@ Documentation for the Binance REST API is at
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">account</td>
-      <td data-ice="type" class="code"><span>Account</span></td>
+      <td data-ice="name" class="code" data-depth="0">accountName</td>
+      <td data-ice="type" class="code"><span>string</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The Binance account to use for authentication,
-                         if required.</p>
+      <td data-ice="description"><p>The name of the Binance account to use for
+                         authentication. The account must have been
+                         created with <span><a href="class/src/binance.mjs~BinanceAccess.html#instance-method-loadAccount">loadAccount</a></span>.</p>
 </td>
     </tr>
 </tbody>
@@ -1045,10 +1046,13 @@ Documentation for the Binance REST API is at
     
   <div class="example-doc" data-ice="exampleDoc">
       
-      <pre class="prettyprint source-code"><code data-ice="exampleCode">  const info = await this.binance.apiCommand(
+      <pre class="prettyprint source-code"><code data-ice="exampleCode">  const binance = new BinanceAccess();
+  binance.init();
+  binance.loadAccount(&apos;Zaphod&apos;, MyKey, MySecret);
+  const info = await binance.apiCommand(
       BinanceCommands.accountInfo,
       {timestamp: this.binance.getTimestamp()},
-      account
+      &apos;Zaphod&apos;
   );</code></pre>
     </div>
 </div>
@@ -1070,7 +1074,7 @@ Documentation for the Binance REST API is at
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber298">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber303">source</a></span></span>
     </span>
   </h3>
 
@@ -1167,7 +1171,7 @@ avoids duplication.</p>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber265">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber270">source</a></span></span>
     </span>
   </h3>
 
@@ -1224,7 +1228,7 @@ avoids duplication.</p>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber238">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber243">source</a></span></span>
     </span>
   </h3>
 
@@ -1281,7 +1285,7 @@ No other function can be run until init() is completed.</p>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber279">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/binance.mjs.html#lineNumber284">source</a></span></span>
     </span>
   </h3>
 

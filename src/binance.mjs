@@ -152,8 +152,9 @@ export class BinanceAccess {
      *                          @link{BinanceCommands}.
      * @param {object} params   An object containing parameters passed to the
      *                          API call, stored as key,value pairs.
-     * @param {Account} account The Binance account to use for authentication,
-     *                          if required.
+     * @param {string} accountName  The name of the Binance account to use for
+     *                          authentication. The account must have been
+     *                          created with {@link loadAccount}.
      *
      * @returns The object returned by the Binance API call (see Binance docs)
      * @throws {Error}  In the following situations (see error string):
@@ -164,13 +165,16 @@ export class BinanceAccess {
      *                  - Network error
      *.
      * @example
-     *   const info = await this.binance.apiCommand(
+     *   const binance = new BinanceAccess();
+     *   await binance.init();
+     *   binance.loadAccount('Zaphod', MyKey, MySecret);
+     *   const info = await binance.apiCommand(
      *       BinanceCommands.accountInfo,
      *       {timestamp: this.binance.getTimestamp()},
-     *       account
+     *       'Zaphod'
      *   );
      */
-    async apiCommand(cmd, params={}, account=null) {
+    async apiCommand(cmd, params={}, accountName=null) {
         if (!this.ready) throw 'BinanceAccess not ready.';
         if (cmd === undefined) return false;
 
@@ -195,10 +199,11 @@ export class BinanceAccess {
         const requestConfig = {params: params};
 
         if (cmd.reqAuth) {
-            // FIXME: Should probablyu reference account by name when calling
-            // this method to ensure Account object was created via
-            // loadAccount.
-            if (account === null) throw `Account required for ${cmd.name}`;
+            if (accountName === null) throw `Account required for ${cmd.name}`;
+            if (!this.accounts.has(accountName)) {
+                throw new Error(`Account ${accountName} not found.`);
+            }
+            const account = this.accounts.get(accountName);
             requestConfig.headers = {'X-MBX-APIKEY': account.key};
             const totalParams = querystring.stringify(params);
             const hmac = crypto.createHmac('sha256', account.secret);
