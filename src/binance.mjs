@@ -131,18 +131,17 @@ export class BinanceAccess {
      *                          calls.
      */
     constructor(timeout=3000) {
-        this.ready = false;
+        this._ready = false;
         this.base = 'https://api.binance.com/';
         this._axiosInst = axios.create({
             baseURL: this.base,
             timeout: timeout
         });
-        this.ready = false;
         this.limits = null;
         this.accounts = new Map();
         this.streams = new StreamManager();
-        this.coinPairInfo = new Map();
-        this.coinPairs = new Map();
+        this._coinPairInfo = new Map();
+        this._coinPairs = new Map();
     }
 
     /**
@@ -176,7 +175,7 @@ export class BinanceAccess {
      *   );
      */
     async apiCommand(cmd, params={}, accountName=null) {
-        if (!this.ready) throw 'BinanceAccess not ready.';
+        if (!this._ready) throw 'BinanceAccess not ready.';
         if (cmd === undefined) return false;
 
         if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {
@@ -242,7 +241,7 @@ export class BinanceAccess {
      * No other function can be run until init() is completed.
      */
     async init() {
-        this.ready = true;
+        this._ready = true;
         const info = await this.apiCommand(BinanceCommands.info);
         log.info('Local/Server time difference = '
             +`${Date.now() - info.serverTime}ms`);
@@ -258,7 +257,7 @@ export class BinanceAccess {
         if (info.exchangeFilters.length > 0) throw 'Exchange filters now present.';
 
         for (const pair of info.symbols) {
-            this.coinPairInfo.set(pair.symbol, pair);
+            this._coinPairInfo.set(pair.symbol, pair);
         }
 
         return true;
@@ -283,7 +282,7 @@ export class BinanceAccess {
      *                          64 char string.
      */
     async loadAccount(name, key, secret) {
-        if (!this.ready) throw 'BinanceAccess not ready.';
+        if (!this._ready) throw 'BinanceAccess not ready.';
         if (this.accounts.has(name)) throw 'Account already exists.';
         const account = new Account(this, name, key, secret);
         this.accounts.set(name, account);
@@ -303,14 +302,14 @@ export class BinanceAccess {
      */
     getCoinPair(base, quote) {
         const symbol = `${base}${quote}`;
-        if (!this.coinPairs.has(base)) this.coinPairs.set(base, new Map());
-        const baseMap = this.coinPairs.get(base);
+        if (!this._coinPairs.has(base)) this._coinPairs.set(base, new Map());
+        const baseMap = this._coinPairs.get(base);
         if (!baseMap.has(quote)) {
-            if (!this.coinPairInfo.has(symbol)) {
+            if (!this._coinPairInfo.has(symbol)) {
                 throw new Error(`${symbol} not available on exchange`);
             }
             const coinPair = new CoinPair(
-                base, quote, this.coinPairInfo.get(symbol)
+                base, quote, this._coinPairInfo.get(symbol)
             );
             baseMap.set(quote, coinPair);
             return coinPair;
