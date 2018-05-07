@@ -120,6 +120,7 @@ class Limits {
 /**
  * The main entry point for access to Binance.
  * Each application requires at least one instance of this class.
+ * See {@link apiCommand} for an example on using this class.
  * @access public
  */
 export class BinanceAccess {

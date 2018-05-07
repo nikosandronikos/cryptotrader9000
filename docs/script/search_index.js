@@ -90,6 +90,24 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/binance.mjs~binanceaccess#_coinpairinfo",
+    "class/src/binance.mjs~BinanceAccess.html#instance-member-_coinPairInfo",
+    "src/binance.mjs~BinanceAccess#_coinPairInfo",
+    "member"
+  ],
+  [
+    "src/binance.mjs~binanceaccess#_coinpairs",
+    "class/src/binance.mjs~BinanceAccess.html#instance-member-_coinPairs",
+    "src/binance.mjs~BinanceAccess#_coinPairs",
+    "member"
+  ],
+  [
+    "src/binance.mjs~binanceaccess#_ready",
+    "class/src/binance.mjs~BinanceAccess.html#instance-member-_ready",
+    "src/binance.mjs~BinanceAccess#_ready",
+    "member"
+  ],
+  [
     "src/binance.mjs~binanceaccess#accounts",
     "class/src/binance.mjs~BinanceAccess.html#instance-member-accounts",
     "src/binance.mjs~BinanceAccess#accounts",
@@ -105,18 +123,6 @@ window.esdocSearchIndex = [
     "src/binance.mjs~binanceaccess#base",
     "class/src/binance.mjs~BinanceAccess.html#instance-member-base",
     "src/binance.mjs~BinanceAccess#base",
-    "member"
-  ],
-  [
-    "src/binance.mjs~binanceaccess#coinpairinfo",
-    "class/src/binance.mjs~BinanceAccess.html#instance-member-coinPairInfo",
-    "src/binance.mjs~BinanceAccess#coinPairInfo",
-    "member"
-  ],
-  [
-    "src/binance.mjs~binanceaccess#coinpairs",
-    "class/src/binance.mjs~BinanceAccess.html#instance-member-coinPairs",
-    "src/binance.mjs~BinanceAccess#coinPairs",
     "member"
   ],
   [
@@ -154,12 +160,6 @@ window.esdocSearchIndex = [
     "class/src/binance.mjs~BinanceAccess.html#instance-method-loadAccount",
     "src/binance.mjs~BinanceAccess#loadAccount",
     "method"
-  ],
-  [
-    "src/binance.mjs~binanceaccess#ready",
-    "class/src/binance.mjs~BinanceAccess.html#instance-member-ready",
-    "src/binance.mjs~BinanceAccess#ready",
-    "member"
   ],
   [
     "src/binance.mjs~binanceaccess#streams",
