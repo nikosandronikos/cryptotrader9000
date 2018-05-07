@@ -309,8 +309,8 @@ export class BinanceAccess {
                 throw new Error(`${symbol} not available on exchange`);
             }
             const coinPair = new CoinPair(
-                    base, quote, this.coinPairInfo.get(symbol)
-                );
+                base, quote, this.coinPairInfo.get(symbol)
+            );
             baseMap.set(quote, coinPair);
             return coinPair;
         }
