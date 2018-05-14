@@ -4,8 +4,10 @@
     "destination": "./docs",
     "plugins": [{
         "name": "esdoc-standard-plugin",
-        "lint": {"enable": true},
-        "coverage": {"enable": true},
-        "accessor": {"access": ["public"]}
+        "option": {
+            "lint": {"enable": true},
+            "coverage": {"enable": true},
+            "accessor": {"access": ["public"]}
+        }
     }]
 }
