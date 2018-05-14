@@ -51,7 +51,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             this._checkAndFillTrailingData(time - this.interval);
             this.data.push(data);
             this.lastTime = time;
-            this.notifyObservers('extended', data);
+            this.notifyObservers('extended', data, time);
         } else if (time < this.firstTime) {
             // Comes before first sample
             this._checkAndFillLeadingData(time + this.interval, data);
@@ -62,7 +62,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             // sample, otherwise an error.
             const replaceIndex = (time - this.firstTime) / this.interval;
             this.data[replaceIndex] = data;
-            this.notifyObservers('replaceRecent', data);
+            this.notifyObservers('replaceRecent', data, time);
         }
     }
 
