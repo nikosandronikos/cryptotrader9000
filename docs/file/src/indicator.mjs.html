@@ -39,8 +39,17 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
@@ -50,6 +59,7 @@
 import {ObservableMixin} from &apos;./observable&apos;;
 import {BinanceStreamKlines} from &apos;./binancestream.mjs&apos;;
 import {TimeSeriesData} from &apos;./timeseries&apos;;
+import {findCross} from &apos;./utils&apos;;
 import {log} from &apos;./log&apos;;
 
 Big.DP = 8;
@@ -96,15 +106,15 @@ export class EMAIndicator extends Indicator {
 
         // FIXME: Not sure what events would be best coming from the
         //        TimeSeries class yet.
-        const showCalc = () =&gt; log.debug(
-            `${this.coinPair.symbol} ${this.interval}`
-            +` EMA${this.nPeriods} = ${this._calculate()}`
-        );
+        //const showCalc = () =&gt; log.debug(
+        //    `${this.coinPair.symbol} ${this.interval}`
+        //    +` EMA${this.nPeriods} = ${this._calculate()}`
+        //);
 
-        this.source.addObserver(&apos;extended&apos;, showCalc);
-        this.source.addObserver(&apos;replaceRecent&apos;, showCalc);
+        this.source.addObserver(&apos;extended&apos;, this._calculate, this);
+        this.source.addObserver(&apos;replaceRecent&apos;, this._calculate, this);
 
-        showCalc();
+        //showCalc();
     }
 
     static async createAndInit(binance, coinPair, nPeriods, interval) {
@@ -139,10 +149,11 @@ export class MultiEMAIndicator extends Indicator {
         this.lengths.sort((a,b) =&gt; b - a);
         this.interval = interval;
         this.emas = [];
+        this.orderedEmas = null;
         this.data = new TimeSeriesData(interval);
         this.currentTime = 0;
         this.nUpdates = 0;
-        this.state = &apos;neutral&apos;;
+        this.nFullUpdates = 0;
     }
 
     async init() {
@@ -156,6 +167,7 @@ export class MultiEMAIndicator extends Indicator {
             this.emas.push(ema);
         }
         for (const ema of this.emas) {
+            // FIXME: Should this just be closed prices?
             // eslint-disable-next-line no-unused-vars
             ema.addObserver(&apos;update&apos;, (time, ema) =&gt; {
                 if (time &gt; this.currentTime) {
@@ -164,23 +176,75 @@ export class MultiEMAIndicator extends Indicator {
                 }
                 this.nUpdates ++;
                 if (this.nUpdates == this.lengths.length) {
-                    log.debug(`Got all ${this.nUpdates} for ${this.currentTime}`);
-                    const slow = this.emas[0].data.getRecent(1, time)[0];
-                    const fast = this.emas[this.emas.length - 1].data.getRecent(1, time)[0];
-                    const lastState = this.state;
-                    const cmp = fast.cmp(slow);
-                    log.debug(fast.toString(), slow.toString(), cmp);
-                    if (cmp &gt; 0) this.state = &apos;bullish&apos;;
-                    else if (cmp &lt; 0) this.state = &apos;bearish&apos;;
-                    if (this.state !== lastState) {
-                        log.notify(`${this.coinPair.symbol}`
-                            + ` EMA(${this.lengths[0]}) and EMA(${this.lengths[this.lengths.length-1]})`
-                            + ` crossed on ${this.interval}.`
-                            + ` ${this.state==&apos;bullish&apos;?&apos;Buy&apos;:&apos;Sell&apos;}!`);
-                    }
+                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);
+                    this._update(time);
                 }
             });
         }
+    }
+
+    _update(time) {
+        const slow = this.emas[0].data.getRecent(1, time)[0];
+        const fast = this.emas[this.emas.length - 1].data.getRecent(1, time)[0];
+        const newOrder = [];
+
+        this.nFullUpdates ++;
+
+        for (const ema of this.emas) {
+            // @TODO getRecent, given the same time should always return the
+            // same price. Need to add a test for this. Exception is if
+            // the period isn&apos;t closed.
+            // If not doing closed prices. We may want to freeze the price here
+            // and store a wrapper rather than the actual ema instance.
+            newOrder.push(ema);
+            //{
+            //    ind:    ema,
+            //    length: ema.nPeriods,
+            //    price:  ema.data.getRecent(1, time)[0]
+            //});
+        }
+        newOrder.sort((a,b) =&gt; {
+            const aPrice = a.data.getRecent(1,time)[0];
+            const bPrice = b.data.getRecent(1,time)[0];
+            const priceCmp = aPrice.cmp(bPrice);
+            //log.debug(priceCmp, b.nPeriods, a.nPeriods);
+            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;
+        });
+
+        if (this.orderedEmas === null) {
+            this.orderedEmas = newOrder;
+            return;
+        }
+
+        if (this.nFullUpdates &lt; 21) {
+            log.debug(this.nFullUpdates);
+            return;
+        }
+        this.notifyObservers(&apos;update&apos;);
+
+        for (let i = 0; i &lt; newOrder.length; i++) {
+            log.debug(
+                &apos;  &apos;, this.orderedEmas[i].nPeriods, newOrder[i].nPeriods,
+                &apos;:&apos;, newOrder[i].data.getRecent(1, time)[0].toString()
+            );
+        }
+
+        const cross = findCross(
+                this.orderedEmas, newOrder, fast.nPeriods, slow.nPeriods, (a) =&gt; a.nPeriods
+            );
+        this.orderedEmas = newOrder;
+
+        log.debug(cross);
+
+        if (cross.crossed === []) return;
+
+        if (cross.fastSlowCross) {
+            // FIXME: Should we provide prices of emas?
+            this.notifyObservers(&apos;fastSlowCross&apos;, cross.crossed, time);
+            return;
+        }
+
+        this.notifyObservers(&apos;cross&apos;, cross.crossed, time);
     }
 
     static async createAndInit(binance, coinPair, interval, lengths) {

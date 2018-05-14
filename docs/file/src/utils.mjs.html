@@ -39,8 +39,17 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
@@ -85,6 +94,70 @@ export function chartIntervalToMs(intervalStr) {
     const ms = intervalToMs(period, num);
     return ms;
 }
+
+/**
+ * @typedef {any} Any   Any type.
+ * @access package
+ */
+
+/**
+ * @typedef {any} ComparisonType    Any type, but all parameters of this type
+ *                                  must be comparable.
+ * @access package
+ */
+
+/**
+ * Given two arrays, with values that can be compared, determine which
+ * values &apos;crossed&apos; from the first to the second.
+ * Also determine if the fast and slow (mininum value and maximum value) crossed.
+ * For example, for a = [1,2,3,4], and b = [1,3,2,4]. Values 2 and 3 are considered
+ * to have crossed as they swapped position.
+ * @access package
+ *
+ * @param {Array&lt;Any&gt;} a      The first array of values.
+ * @param {Array&lt;Any&gt;} b      The first array of values.
+ * @param {ComparisonType}    fast   The &apos;fast&apos; value.
+ * @param {ComparisonType}    slow   The &apos;slow&apos; value.
+ * @param {function(a:Any): ComparisonType} valueFn   A function for retrieving the
+ *                                      comparison value from &apos;a&apos; and &apos;b&apos;,
+ *                                      if they are compound objects and the comparison
+ *                                      value is a property.
+ *
+ * @returns {{fastSlowCross: bool, crossed: Array&lt;Any&gt;}}    An object with
+ * properties &apos;fastSlowCross&apos;, which indicates if fast and slow crossed, and
+ * the array &apos;crossed&apos; which contains any elements that crossed, or is empty
+ * if no cross occurred.
+ *
+ * @example
+ * const a = [1,2,3,4]
+ * const b = [1,4,3,2]
+ * const cross = findCross(a, b, 1, 4);
+ * console.log(cross); // {fastSlowCross: false, crossed: [4,3,2]
+ */
+export function findCross(a, b, fast, slow, valueFn=(a)=&gt;a) {
+    let firstCross = null;
+    let afterCross = null;
+    // Assume min and max cross unless we see one of them outside of the
+    // cross zone.
+    let fastSlowCross = true;
+
+    // Two separate loops seems to be ever so slightly faster.
+    for (let r = a.length-1; afterCross === null &amp;&amp; r &gt; 0; r--) {
+        if (valueFn(a[r]) != valueFn(b[r])) afterCross = r+1;
+        else if (valueFn(a[r]) == fast || valueFn(a[r]) == slow) fastSlowCross = false;
+    }
+
+    if (afterCross === null) return {fastSlowCross:false, crossed:[]};
+
+    for (let l = 0; firstCross === null &amp;&amp; l &lt; afterCross; l++) {
+        if (valueFn(a[l]) != valueFn(b[l])) firstCross = l;
+        else if (valueFn(a[l]) == fast || valueFn(a[l]) == slow) fastSlowCross = false;
+    }
+
+    return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};
+}
+
+
 </code></pre>
 
 </div>

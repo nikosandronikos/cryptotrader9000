@@ -1,7 +1,7 @@
 {
-  "coverage": "32.65%",
-  "expectCount": 98,
-  "actualCount": 32,
+  "coverage": "32.67%",
+  "expectCount": 101,
+  "actualCount": 33,
   "files": {
     "src/account.mjs": {
       "expectCount": 8,
@@ -28,11 +28,11 @@
         134,
         135,
         136,
+        140,
         141,
         142,
         143,
-        144,
-        145
+        144
       ]
     },
     "src/binancestream.mjs": {
@@ -58,31 +58,33 @@
       ]
     },
     "src/indicator.mjs": {
-      "expectCount": 22,
+      "expectCount": 24,
       "actualCount": 0,
       "undocumentLines": [
-        11,
-        23,
+        12,
         24,
-        26,
+        25,
         27,
-        29,
+        28,
         30,
-        33,
-        35,
-        62,
-        69,
-        87,
+        31,
+        34,
+        36,
+        63,
+        70,
         88,
-        90,
-        92,
+        89,
+        91,
         93,
         94,
         95,
         96,
         97,
-        100,
-        138
+        98,
+        99,
+        102,
+        129,
+        193
       ]
     },
     "src/log.mjs": {
@@ -122,8 +124,8 @@
       "undocumentLines": []
     },
     "src/utils.mjs": {
-      "expectCount": 2,
-      "actualCount": 2,
+      "expectCount": 3,
+      "actualCount": 3,
       "undocumentLines": []
     }
   }

@@ -42,15 +42,21 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
   <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode"></code></pre></div>
-  <span data-ice="access">private</span>
+  <span data-ice="access">package</span>
   <span data-ice="kind">class</span>
   
   
@@ -181,7 +187,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-debug">debug</a></span></span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-debug">debug</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
         </p>
       </div>
       <div>
@@ -209,7 +215,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-error">error</a></span></span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-error">error</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
         </p>
       </div>
       <div>
@@ -237,7 +243,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-info">info</a></span></span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-info">info</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
         </p>
       </div>
       <div>
@@ -265,7 +271,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-notify">notify</a></span></span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-notify">notify</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
         </p>
       </div>
       <div>
@@ -347,7 +353,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber10">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber14">source</a></span></span>
     </span>
   </h3>
 
@@ -389,11 +395,11 @@
     
     
     
-    <span class="code" data-ice="name">debug</span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+    <span class="code" data-ice="name">debug</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber27">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber36">source</a></span></span>
     </span>
   </h3>
 
@@ -413,8 +419,8 @@
     <tbody>
     
     <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">message</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="name" class="code" data-depth="0">args</td>
+      <td data-ice="type" class="code">...<span>*</span></td>
       <td data-ice="appendix"></td>
       <td data-ice="description"></td>
     </tr>
@@ -448,11 +454,11 @@
     
     
     
-    <span class="code" data-ice="name">error</span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+    <span class="code" data-ice="name">error</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber13">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber22">source</a></span></span>
     </span>
   </h3>
 
@@ -472,8 +478,8 @@
     <tbody>
     
     <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">message</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="name" class="code" data-depth="0">args</td>
+      <td data-ice="type" class="code">...<span>*</span></td>
       <td data-ice="appendix"></td>
       <td data-ice="description"></td>
     </tr>
@@ -507,11 +513,11 @@
     
     
     
-    <span class="code" data-ice="name">info</span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+    <span class="code" data-ice="name">info</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber23">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber32">source</a></span></span>
     </span>
   </h3>
 
@@ -531,8 +537,8 @@
     <tbody>
     
     <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">message</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="name" class="code" data-depth="0">args</td>
+      <td data-ice="type" class="code">...<span>*</span></td>
       <td data-ice="appendix"></td>
       <td data-ice="description"></td>
     </tr>
@@ -566,11 +572,11 @@
     
     
     
-    <span class="code" data-ice="name">notify</span><span class="code" data-ice="signature">(message: <span>*</span>)</span>
+    <span class="code" data-ice="name">notify</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber18">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber27">source</a></span></span>
     </span>
   </h3>
 
@@ -590,8 +596,8 @@
     <tbody>
     
     <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">message</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="name" class="code" data-depth="0">args</td>
+      <td data-ice="type" class="code">...<span>*</span></td>
       <td data-ice="appendix"></td>
       <td data-ice="description"></td>
     </tr>
