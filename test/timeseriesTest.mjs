@@ -189,8 +189,8 @@ test('TimeSeriesData: getAt', (t) => {
     ts.addData(intervalMs * 5, 5);
     ts.addData(intervalMs * 6, 6);
 
-    t.throws(() => ts.getAt(intervalMs * -1), Error);
-    t.throws(() => ts.getAt(intervalMs * 0.9), Error);
+    t.equal(ts.getAt(intervalMs * -1), undefined);
+    t.equal(ts.getAt(intervalMs * 0.9), undefined);
     t.equal(ts.getAt(intervalMs * 1), 1);
     t.equal(ts.getAt(intervalMs * 2), 2);
     t.equal(ts.getAt(intervalMs * 2.5), 2);
@@ -200,12 +200,12 @@ test('TimeSeriesData: getAt', (t) => {
     t.equal(ts.getAt(intervalMs * 5), 5);
     t.equal(ts.getAt(intervalMs * 6), 6);
     t.equal(ts.getAt(intervalMs * 6.9), 6);
-    t.throws(() => ts.getAt(intervalMs * 7), Error);
+    t.equal(ts.getAt(intervalMs * 7), undefined);
 
     ts.addData(intervalMs * 8, 8);
     t.equal(ts.getAt(intervalMs * 7), 6);
     t.equal(ts.getAt(intervalMs * 8), 8);
-    t.throws(() => ts.getAt(intervalMs * 9), Error);
+    t.equal(ts.getAt(intervalMs * 9), undefined);
 
     t.end();
 });
