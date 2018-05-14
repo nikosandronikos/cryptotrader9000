@@ -84,6 +84,24 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         return this.data.slice(Math.max(0, offset - n), offset);
     }
 
+    /**
+     * Get a value from the time series for a specific time.
+     * @param {number} time     The time in the series from where data will
+     *                          be retrieved.
+     * @returns        The data at that time.
+     * @throws {Error} If no data entry exists for that time.
+     */
+    getAt(time) {
+        time -= (time % this.interval);
+
+        if (time < this.firstTime || time > this.lastTime) {
+            throw new Error(`No data for ${time}. firstTime=${this.firstTime}, lastTime=${this.lastTime}.`);
+        }
+
+        const index = (time - this.firstTime) / this.interval;
+        return this.data[index];
+    }
+
     // eslint-disable-next-line no-unused-vars
     getRange(startTime, endTime) {
     }

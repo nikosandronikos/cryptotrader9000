@@ -178,3 +178,34 @@ test('TimeSeriesData: add data miss intervals at start', (t) => {
     t.end();
 });
 
+test('TimeSeriesData: getAt', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const intervalMs = 1 * 60 * 1000;
+
+    ts.addData(intervalMs * 1, 1);
+    ts.addData(intervalMs * 2, 2);
+    ts.addData(intervalMs * 3, 3);
+    ts.addData(intervalMs * 4, 4);
+    ts.addData(intervalMs * 5, 5);
+    ts.addData(intervalMs * 6, 6);
+
+    t.throws(() => ts.getAt(intervalMs * -1), Error);
+    t.throws(() => ts.getAt(intervalMs * 0.9), Error);
+    t.equal(ts.getAt(intervalMs * 1), 1);
+    t.equal(ts.getAt(intervalMs * 2), 2);
+    t.equal(ts.getAt(intervalMs * 2.5), 2);
+    t.equal(ts.getAt(intervalMs * 2.99), 2);
+    t.equal(ts.getAt(intervalMs * 3), 3);
+    t.equal(ts.getAt(intervalMs * 4), 4);
+    t.equal(ts.getAt(intervalMs * 5), 5);
+    t.equal(ts.getAt(intervalMs * 6), 6);
+    t.equal(ts.getAt(intervalMs * 6.9), 6);
+    t.throws(() => ts.getAt(intervalMs * 7), Error);
+
+    ts.addData(intervalMs * 8, 8);
+    t.equal(ts.getAt(intervalMs * 7), 6);
+    t.equal(ts.getAt(intervalMs * 8), 8);
+    t.throws(() => ts.getAt(intervalMs * 9), Error);
+
+    t.end();
+});
