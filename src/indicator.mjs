@@ -2,6 +2,7 @@ import Big from 'big.js';
 import {ObservableMixin} from './observable';
 import {BinanceStreamKlines} from './binancestream.mjs';
 import {TimeSeriesData} from './timeseries';
+import {findCross, chartIntervalToMs} from './utils';
 import {log} from './log';
 
 Big.DP = 8;
@@ -25,12 +26,13 @@ export class EMAIndicator extends Indicator {
         super(binance, coinPair);
         this.nPeriods = nPeriods;
         this.interval = interval;
+        this.intervalMs = chartIntervalToMs(this.interval);
 
         this.source = null;
         this.data = new TimeSeriesData(interval);
     }
 
-    async init() {
+    async init(getHistory=0) {
         // Set up stream
         this.stream = await BinanceStreamKlines.create(
             this.binance,
@@ -40,38 +42,38 @@ export class EMAIndicator extends Indicator {
         );
         // Get the history we will need to compute EMA.
         // getHistory returns a TimeSeriesData which we will use from now on.
-        // FIXME: Should get more history and pre-compute EMA for a while
-        // because it takes a while to converge to the correct value.
-        this.source = await this.stream.getHistory(1);
+        this.source = await this.stream.getHistory(Math.max(getHistory+1, 1));
+
+        log.debug(`EMAIndicator(${this.nPeriods}): Calculating history.`);
+        const currentTime = this.binance.getTimestamp();
+        for (
+            let time = currentTime - getHistory * this.intervalMs;
+            time < currentTime;
+            time += this.intervalMs
+        ) {
+            const ema = this._calculate(time);
+            console.log('  ', time, ema.toString());
+        }
+
         // Feed stream data in the TimeSeriesData store
         this.stream.addObserver('newData', this.source.addData, this.source);
 
-        // FIXME: Not sure what events would be best coming from the
-        //        TimeSeries class yet.
-        const showCalc = () => log.debug(
-            `${this.coinPair.symbol} ${this.interval}`
-            +` EMA${this.nPeriods} = ${this._calculate()}`
-        );
-
-        this.source.addObserver('extended', showCalc);
-        this.source.addObserver('replaceRecent', showCalc);
-
-        showCalc();
+        this.source.addObserver('extended', (data,time) => this._calculate(time));
+        this.source.addObserver('replaceRecent', (data,time) => this._calculate(time));
     }
 
-    static async createAndInit(binance, coinPair, nPeriods, interval) {
+    static async createAndInit(binance, coinPair, nPeriods, interval, getHistory=0) {
         log.info(`Creating EMAIndicator for ${coinPair.symbol} (${nPeriods}) ${interval}`);
         const ema = new EMAIndicator(binance, coinPair, nPeriods, interval);
-        await ema.init();
+        await ema.init(getHistory);
         return ema;
     }
 
-    _calculate() {
-        const time = this.binance.getTimestamp();
-        const current = this.source.getRecent(1, time)[0];
+    _calculate(time = this.binance.getTimestamp()) {
+        const current = this.source.getAt(time);
+        if (current === undefined) throw new Error('Data missing.');
         // Either last EMA if available or last close price
-        let last = NaN;
-        last = this.data.getRecent(2, time)[0];
+        let last = this.data.getAt(time - this.intervalMs);
         if (last === undefined) last = current;
 
         // Weighting for most recent close price.
@@ -91,23 +93,41 @@ export class MultiEMAIndicator extends Indicator {
         this.lengths.sort((a,b) => b - a);
         this.interval = interval;
         this.emas = [];
+        this.orderedEmas = null;
         this.data = new TimeSeriesData(interval);
         this.currentTime = 0;
         this.nUpdates = 0;
-        this.state = 'neutral';
     }
 
     async init() {
+        // When calculating historic values, start at 20 candles prior to the current.
+        const history = 20;
+
         for (const length of this.lengths) {
             const ema = await EMAIndicator.createAndInit(
                 this.binance,
                 this.coinPair,
                 length,
-                this.interval
+                this.interval,
+                history
             );
             this.emas.push(ema);
         }
+
+        // Calculate recent values so that EMAs stabilise.
+        log.debug('MultiEMA: Calculating historic values');
+        const currentTime = this.binance.getTimestamp();
+        const intervalMs = chartIntervalToMs(this.interval);
+        for (
+            let time = currentTime - history * intervalMs;
+            time < currentTime;
+            time += this.interval
+        ) {
+            this._update(time);
+        }
+
         for (const ema of this.emas) {
+            // FIXME: Should this just be closed prices?
             // eslint-disable-next-line no-unused-vars
             ema.addObserver('update', (time, ema) => {
                 if (time > this.currentTime) {
@@ -116,23 +136,71 @@ export class MultiEMAIndicator extends Indicator {
                 }
                 this.nUpdates ++;
                 if (this.nUpdates == this.lengths.length) {
-                    log.debug(`Got all ${this.nUpdates} for ${this.currentTime}`);
-                    const slow = this.emas[0].data.getRecent(1, time)[0];
-                    const fast = this.emas[this.emas.length - 1].data.getRecent(1, time)[0];
-                    const lastState = this.state;
-                    const cmp = fast.cmp(slow);
-                    log.debug(fast.toString(), slow.toString(), cmp);
-                    if (cmp > 0) this.state = 'bullish';
-                    else if (cmp < 0) this.state = 'bearish';
-                    if (this.state !== lastState) {
-                        log.notify(`${this.coinPair.symbol}`
-                            + ` EMA(${this.lengths[0]}) and EMA(${this.lengths[this.lengths.length-1]})`
-                            + ` crossed on ${this.interval}.`
-                            + ` ${this.state=='bullish'?'Buy':'Sell'}!`);
-                    }
+                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);
+                    this._update(time);
                 }
             });
         }
+    }
+
+    _update(time) {
+        const slow = this.emas[0].data.getAt(time);
+        const fast = this.emas[this.emas.length - 1].data.getAt(time);
+        if (fast === undefined || slow === undefined) throw new Error('Data missing.');
+        const newOrder = [];
+
+        for (const ema of this.emas) newOrder.push(ema);
+
+        // Currently in visual order - when price increasing
+        // index 0 will be fastest EMA, when decreasing index 0 will be slowest.
+        // Highest price is index 0.
+        newOrder.sort((a,b) => {
+            const aPrice = a.data.getAt(time);
+            const bPrice = b.data.getAt(time);
+
+            if (aPrice === undefined || bPrice === undefined) {
+                throw new Error('MultiEMA: Price data missing.');
+            }
+
+            const priceCmp = bPrice.cmp(aPrice);
+            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;
+        });
+
+        if (this.orderedEmas === null) {
+            this.orderedEmas = newOrder;
+            return;
+        }
+
+        this.notifyObservers('update');
+
+        for (let i = 0; i < newOrder.length; i++) {
+            log.debug(
+                '  ', newOrder[i].nPeriods, 'was(', this.orderedEmas[i].nPeriods, ')',
+                ':', newOrder[i].data.getAt(time).toString()
+            );
+        }
+
+        const cross = findCross(
+                this.orderedEmas, newOrder, fast.nPeriods, slow.nPeriods, (a) => a.nPeriods
+            );
+        this.orderedEmas = newOrder;
+
+        const crossDebug = [];
+        for (const crossEma of cross.crossed) {
+            crossDebug.push(crossEma.nPeriods);
+        }
+        log.debug(cross.fastSlowCross, crossDebug);
+
+        if (cross.crossed.length == 0) return;
+
+        if (cross.fastSlowCross) {
+            // FIXME: Should we provide prices of emas?
+            // Current price might be even more useful.
+            this.notifyObservers('fastSlowCross', cross.crossed, time);
+            return;
+        }
+
+        this.notifyObservers('cross', cross.crossed, time);
     }
 
     static async createAndInit(binance, coinPair, interval, lengths) {

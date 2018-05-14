@@ -18,9 +18,13 @@ import {log} from './log';
 
     const nulsbtc = binance.getCoinPair('NULS','BTC');
     // eslint-disable-next-line no-unused-vars
-    const multiEma = MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
+    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
 
-    const eosbtc = binance.getCoinPair('EOS','BTC');
+    multiEma.addObserver('fastSlowCross', function() {log.debug('fastSlowCross')});
+    multiEma.addObserver('cross', function() {log.debug('Cross')});
+    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update')});
+
+    //const eosbtc = binance.getCoinPair('EOS','BTC');
     // eslint-disable-next-line no-unused-vars
-    const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, '15m', [55, 21, 13, 8]);
+    //const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, '15m', [55, 21, 13, 8]);
 })();
