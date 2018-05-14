@@ -19,22 +19,22 @@ class Log {
         }
     }
 
-    error(message) {
-        if (this.telegram) this.telegram.message(message);
-        Console.log(message);
+    error(...args) {
+        if (this.telegram) this.telegram.message(args.join(' '));
+        Console.log(...args);
     }
 
-    notify(message) {
-        if (this.telegram) this.telegram.message(message);
-        Console.log(message);
+    notify(...args) {
+        if (this.telegram) this.telegram.message(args.join(' '));
+        Console.log(...args);
     }
 
-    info(message) {
-        Console.log(message);
+    info(...args) {
+        Console.log(...args);
     }
 
-    debug(message) {
-        Console.log(message);
+    debug(...args) {
+        Console.log(...args);
     }
 }
 
