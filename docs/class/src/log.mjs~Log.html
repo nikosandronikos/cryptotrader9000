@@ -40,28 +40,21 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-LogLevelType">LogLevelType</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
   <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode"></code></pre></div>
-  <span data-ice="access">package</span>
+  <span data-ice="access">public</span>
   <span data-ice="kind">class</span>
   
   
   
-  <span data-ice="source">| <span><a href="file/src/log.mjs.html#lineNumber8">source</a></span></span>
+  <span data-ice="source">| <span><a href="file/src/log.mjs.html#lineNumber19">source</a></span></span>
 </div>
 
 <div class="self-detail detail">
@@ -123,7 +116,8 @@
       <div>
         
         
-        
+        <div data-ice="description"><p>Create a logger.</p>
+</div>
       </div>
     </td>
     <td>
@@ -139,6 +133,35 @@
   <tbody>
   
   <tr data-ice="target">
+    <td>
+      <span class="access" data-ice="access">public</span>
+      
+      
+      
+      <span class="override" data-ice="override"></span>
+    </td>
+    <td>
+      <div>
+        <p>
+          
+          
+          
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-member-level">level</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+        </p>
+      </div>
+      <div>
+        
+        
+        <div data-ice="description"><p>Set to a value from <span><a href="variable/index.html#static-variable-LogLevelType">LogLevelType</a></span> to set the verbosity of output.</p>
+</div>
+      </div>
+    </td>
+    <td>
+      
+      
+    </td>
+  </tr>
+<tr data-ice="target">
     <td>
       <span class="access" data-ice="access">public</span>
       
@@ -187,13 +210,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-debug">debug</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-debug">debug</a></span></span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Output debug information.</p>
+</div>
       </div>
     </td>
     <td>
@@ -215,13 +239,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-error">error</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-error">error</a></span></span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Output information about an error.</p>
+</div>
       </div>
     </td>
     <td>
@@ -243,13 +268,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-info">info</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-info">info</a></span></span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Output an informative message.</p>
+</div>
       </div>
     </td>
     <td>
@@ -271,13 +297,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-notify">notify</a></span></span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/log.mjs~Log.html#instance-method-notify">notify</a></span></span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Output notification information.</p>
+</div>
       </div>
     </td>
     <td>
@@ -307,14 +334,18 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber9">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber26">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Create a logger.
+If TELEGRAM_KEY and TELEGRAM_CHANNEL environment variables are set,
+then a Telegram bot will be instantiated for output for some log
+verbosity levels.</p>
+</div>
 
   
 
@@ -342,6 +373,50 @@
 <div data-ice="memberDetails"><h2 data-ice="title">Public Members</h2>
 
 <div class="detail" data-ice="detail">
+  <h3 data-ice="anchor" id="instance-member-level">
+    <span class="access" data-ice="access">public</span>
+    
+    
+    
+    
+    
+    <span class="code" data-ice="name">level</span><span class="code" data-ice="signature">: <span>*</span></span>
+    <span class="right-info">
+      
+      
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber30">source</a></span></span>
+    </span>
+  </h3>
+
+  
+  
+  
+  <div data-ice="description"><p>Set to a value from <span><a href="variable/index.html#static-variable-LogLevelType">LogLevelType</a></span> to set the verbosity of output.</p>
+</div>
+
+  
+
+  <div data-ice="properties">
+</div>
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+</div>
+<div class="detail" data-ice="detail">
   <h3 data-ice="anchor" id="instance-member-telegram">
     <span class="access" data-ice="access">public</span>
     
@@ -353,7 +428,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber14">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber36">source</a></span></span>
     </span>
   </h3>
 
@@ -395,18 +470,19 @@
     
     
     
-    <span class="code" data-ice="name">debug</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+    <span class="code" data-ice="name">debug</span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber36">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber93">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Output debug information.</p>
+</div>
 
   
 
@@ -420,9 +496,12 @@
     
     <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">args</td>
-      <td data-ice="type" class="code">...<span>*</span></td>
+      <td data-ice="type" class="code">...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>)</td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>Any number of objects to output. The
+                                 string represented will be concateanted
+                                 with a space character.</p>
+</td>
     </tr>
 </tbody>
   </table>
@@ -454,18 +533,20 @@
     
     
     
-    <span class="code" data-ice="name">error</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+    <span class="code" data-ice="name">error</span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber22">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber52">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Output information about an error.
+Will write to the Telegram bot if configured.</p>
+</div>
 
   
 
@@ -479,9 +560,12 @@
     
     <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">args</td>
-      <td data-ice="type" class="code">...<span>*</span></td>
+      <td data-ice="type" class="code">...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>)</td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>Any number of objects to output. The
+                                 string represented will be concateanted
+                                 with a space character.</p>
+</td>
     </tr>
 </tbody>
   </table>
@@ -513,18 +597,20 @@
     
     
     
-    <span class="code" data-ice="name">info</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+    <span class="code" data-ice="name">info</span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber32">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber81">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Output an informative message. Considered to be less important than
+notifications.</p>
+</div>
 
   
 
@@ -538,9 +624,12 @@
     
     <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">args</td>
-      <td data-ice="type" class="code">...<span>*</span></td>
+      <td data-ice="type" class="code">...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>)</td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>Any number of objects to output. The
+                                 string represented will be concateanted
+                                 with a space character.</p>
+</td>
     </tr>
 </tbody>
   </table>
@@ -572,18 +661,21 @@
     
     
     
-    <span class="code" data-ice="name">notify</span><span class="code" data-ice="signature">(args: ...<span>*</span>)</span>
+    <span class="code" data-ice="name">notify</span><span class="code" data-ice="signature">(args: ...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>))</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber27">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/log.mjs.html#lineNumber67">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Output notification information. Notifications are considered to be
+of higher importance than informative output.
+Will write to the Telegram bot if configured.</p>
+</div>
 
   
 
@@ -597,9 +689,12 @@
     
     <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">args</td>
-      <td data-ice="type" class="code">...<span>*</span></td>
+      <td data-ice="type" class="code">...(<span>string</span>|<span>number</span>|<span>object</span>|<span>bool</span>)</td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>Any number of objects to output. The
+                                 string represented will be concateanted
+                                 with a space character.</p>
+</td>
     </tr>
 </tbody>
   </table>

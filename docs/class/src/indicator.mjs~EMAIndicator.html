@@ -39,17 +39,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
@@ -112,7 +102,7 @@
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#static-method-createAndInit">createAndInit</a></span></span><span class="code" data-ice="signature">(binance: <span>*</span>, coinPair: <span>*</span>, nPeriods: <span>*</span>, interval: <span>*</span>): <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#static-method-createAndInit">createAndInit</a></span></span><span class="code" data-ice="signature">(binance: <span>*</span>, coinPair: <span>*</span>, nPeriods: <span>*</span>, interval: <span>*</span>, getHistory: <span>number</span>): <span>*</span></span>
         </p>
       </div>
       <div>
@@ -238,6 +228,34 @@
           
           
           
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-member-intervalMs">intervalMs</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+        </p>
+      </div>
+      <div>
+        
+        
+        
+      </div>
+    </td>
+    <td>
+      
+      
+    </td>
+  </tr>
+<tr data-ice="target">
+    <td>
+      <span class="access" data-ice="access">public</span>
+      
+      
+      
+      <span class="override" data-ice="override"></span>
+    </td>
+    <td>
+      <div>
+        <p>
+          
+          
+          
           <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-member-nPeriods">nPeriods</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
         </p>
       </div>
@@ -329,7 +347,7 @@
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-method-init">init</a></span></span><span class="code" data-ice="signature">()</span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-method-init">init</a></span></span><span class="code" data-ice="signature">(getHistory: <span>number</span>)</span>
         </p>
       </div>
       <div>
@@ -360,11 +378,11 @@
     
     <span data-ice="async">async</span>
     
-    <span class="code" data-ice="name">createAndInit</span><span class="code" data-ice="signature">(binance: <span>*</span>, coinPair: <span>*</span>, nPeriods: <span>*</span>, interval: <span>*</span>): <span>*</span></span>
+    <span class="code" data-ice="name">createAndInit</span><span class="code" data-ice="signature">(binance: <span>*</span>, coinPair: <span>*</span>, nPeriods: <span>*</span>, interval: <span>*</span>, getHistory: <span>number</span>): <span>*</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber63">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber64">source</a></span></span>
     </span>
   </h3>
 
@@ -405,6 +423,13 @@
       <td data-ice="name" class="code" data-depth="0">interval</td>
       <td data-ice="type" class="code"><span>*</span></td>
       <td data-ice="appendix"></td>
+      <td data-ice="description"></td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">getHistory</td>
+      <td data-ice="type" class="code"><span>number</span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: 0</li></ul></td>
       <td data-ice="description"></td>
     </tr>
 </tbody>
@@ -502,7 +527,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber31">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber32">source</a></span></span>
     </span>
   </h3>
 
@@ -546,6 +571,49 @@
       
       
       <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber28">source</a></span></span>
+    </span>
+  </h3>
+
+  
+  
+  
+  
+
+  
+
+  <div data-ice="properties">
+</div>
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+</div>
+<div class="detail" data-ice="detail">
+  <h3 data-ice="anchor" id="instance-member-intervalMs">
+    <span class="access" data-ice="access">public</span>
+    
+    
+    
+    
+    
+    <span class="code" data-ice="name">intervalMs</span><span class="code" data-ice="signature">: <span>*</span></span>
+    <span class="right-info">
+      
+      
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber29">source</a></span></span>
     </span>
   </h3>
 
@@ -631,7 +699,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber30">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber31">source</a></span></span>
     </span>
   </h3>
 
@@ -674,7 +742,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber36">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber37">source</a></span></span>
     </span>
   </h3>
 
@@ -716,11 +784,11 @@
     
     <span data-ice="async">async</span>
     
-    <span class="code" data-ice="name">init</span><span class="code" data-ice="signature">()</span>
+    <span class="code" data-ice="name">init</span><span class="code" data-ice="signature">(getHistory: <span>number</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber34">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber35">source</a></span></span>
     </span>
   </h3>
 
@@ -731,7 +799,24 @@
 
   
 
-  <div data-ice="properties">
+  <div data-ice="properties"><div data-ice="properties">
+  <h4 data-ice="title">Params:</h4>
+  <table class="params">
+    <thead>
+    <tr><td>Name</td><td>Type</td><td>Attribute</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+    
+    <tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">getHistory</td>
+      <td data-ice="type" class="code"><span>number</span></td>
+      <td data-ice="appendix"><ul><li>optional</li>
+<li>default: 0</li></ul></td>
+      <td data-ice="description"></td>
+    </tr>
+</tbody>
+  </table>
+</div>
 </div>
 
   

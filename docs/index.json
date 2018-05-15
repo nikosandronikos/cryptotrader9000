@@ -145,7 +145,7 @@
     "__docId__": 9,
     "kind": "file",
     "name": "src/binance.mjs",
-    "content": "import axios from 'axios';\nimport crypto from 'crypto';\nimport querystring from 'querystring';\n\nimport {intervalToMs} from './utils.mjs';\nimport {CoinPair} from './coin.mjs';\nimport {Account} from './account.mjs';\nimport {StreamManager} from './binancestream.mjs';\nimport {log} from './log.mjs';\n\n/**\n * Command descriptions that are passed to {@link BinanceAccess.apiCommand}.\n * @access public\n */\nexport const BinanceCommands = {\n    time: {\n        name: 'exchangeTime',\n        url: 'api/v1/time',\n        weight: 1,\n        limitType: 'REQUESTS'\n    },\n    info: {\n        name: 'exchangeInfo',\n        url: 'api/v1/exchangeInfo',\n        weight: 1,\n        limitType: 'REQUESTS'\n    },\n    klines: {\n        name: 'klines',\n        url: 'api/v1/klines',\n        weight: 1,\n        limitType: 'REQUESTS',\n        reqParams: ['symbol', 'interval']\n    },\n    openOrdersForSymbol: {\n        name: 'openOrdersForSymbol',\n        url:       '/api/v3/openOrders',\n        weight:    1,\n        limitType: 'REQUESTS',\n        reqAuth:   true,\n        reqParams: ['symbol', 'timestamp']\n    },\n    accountInfo: {\n        name:   'accountInfo',\n        url:    '/api/v3/account',\n        weight: 5,\n        limitType:  'REQUESTS',\n        reqAuth:    true,\n        reqParams:  ['timestamp']\n    },\n    available: {\n        name: 'apiAvailable',\n        url: 'api/v1/ping',\n        weight: 1\n    }\n};\n\n/**\n * @access package\n */\nclass Limits {\n    constructor() {\n        this._limits = new Map();\n    }\n\n    setLimit(type, max, interval) {\n        if (!this._limits.has(type)) {\n            this._limits.set(type, []);\n        }\n\n        const intervalMs = intervalToMs(interval);\n        const limits = this._limits.get(type);\n\n        // Overwrite any existing limit of this interval\n        for (const limit of limits) {\n            if (limit.interval == intervalMs) {\n                limit.max = max;\n                return;\n            }\n        }\n\n        limits.push({\n            max: max,\n            remain: max,\n            interval: intervalMs,\n            start: Date.now()\n        });\n    }\n\n    // Tests against a limit and returns false if the limit is exceeded.\n    // If the limit is not exceed, true is returned and an operation is\n    // recorded against the limit.\n    testAndExecute(type) {\n        const limits = this._limits.get(type);\n        if (limits === undefined) {\n            log.info(this._limits);\n            throw `${type} is not a valid limit type`;\n        }\n\n        for (const limit of limits) {\n            if (limit.remain < 1) return false;\n            limit.remain --;\n        }\n\n        return true;\n    }\n\n    update(time) {\n        for (const limitType of this._limits) {\n            for (const limit of limitType) {\n                if (time - limit.start > limit.interval) {\n                    limit.start = time;\n                    limit.remain = limit.max;\n                }\n            }\n        }\n    }\n}\n\n/**\n * The main entry point for access to Binance.\n * Each application requires at least one instance of this class.\n * See {@link apiCommand} for an example on using this class.\n * @access public\n */\nexport class BinanceAccess {\n    /**\n     * Create an instance of BinanceAccess. Generally an instance created\n     * via this constructor will need init() called before use.\n     * @param {number} timeout  The number of ms to use as timeout for REST API\n     *                          calls.\n     */\n    constructor(timeout=3000) {\n        this._ready = false;\n        this.base = 'https://api.binance.com/';\n        this._axiosInst = axios.create({\n            baseURL: this.base,\n            timeout: timeout\n        });\n        this.limits = null;\n        this.accounts = new Map();\n        this.streams = new StreamManager();\n        this._coinPairInfo = new Map();\n        this._coinPairs = new Map();\n    }\n\n    /**\n     * Execute a Binance REST API command.\n     * Documentation for the Binance REST API is at\n     * https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md\n     * @param {object} cmd      A command definition from\n     *                          @link{BinanceCommands}.\n     * @param {object} params   An object containing parameters passed to the\n     *                          API call, stored as key,value pairs.\n     * @param {string} accountName  The name of the Binance account to use for\n     *                          authentication. The account must have been\n     *                          created with {@link loadAccount}.\n     *\n     * @returns The object returned by the Binance API call (see Binance docs)\n     * @throws {Error}  In the following situations (see error string):\n     *                  - BinanceAccess not initialised,\n     *                  - Required parameters missing,\n     *                  - Authentication required but no account given,\n     *                  - Error returned by Binance\n     *                  - Network error\n     *.\n     * @example\n     *   const binance = new BinanceAccess();\n     *   await binance.init();\n     *   binance.loadAccount('Zaphod', MyKey, MySecret);\n     *   const info = await binance.apiCommand(\n     *       BinanceCommands.accountInfo,\n     *       {timestamp: this.binance.getTimestamp()},\n     *       'Zaphod'\n     *   );\n     */\n    async apiCommand(cmd, params={}, accountName=null) {\n        if (!this._ready) throw 'BinanceAccess not ready.';\n        if (cmd === undefined) return false;\n\n        if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {\n            return false;\n        }\n\n        if (cmd.hasOwnProperty('reqParams')) {\n            let paramsOk = true;\n            let missing = [];\n            for (const param of cmd.reqParams) {\n                if (!params.hasOwnProperty(param)) {\n                    paramsOk = false;\n                    missing.push(param);\n                }\n            }\n            if (!paramsOk) {\n                throw `${cmd.name} missing parameters: ${missing.join()}`;\n            }\n        }\n\n        const requestConfig = {params: params};\n\n        if (cmd.reqAuth) {\n            if (accountName === null) throw `Account required for ${cmd.name}`;\n            if (!this.accounts.has(accountName)) {\n                throw new Error(`Account ${accountName} not found.`);\n            }\n            const account = this.accounts.get(accountName);\n            requestConfig.headers = {'X-MBX-APIKEY': account.key};\n            const totalParams = querystring.stringify(params);\n            const hmac = crypto.createHmac('sha256', account.secret);\n            requestConfig.params.signature = hmac.update(totalParams).digest('hex');\n        }\n\n        return this._axiosInst.get(cmd.url, requestConfig)\n            .then(response => {\n                log.info(\n                    `${cmd.url} returned ${response.statusText} `+\n                    `(${response.status})`\n                );\n                return response.data;\n            })\n            .catch(err => {\n                log.error(`${cmd.url} returned error.`);\n                log.debug('requestConfig:', requestConfig);\n                if (err.response) {\n                    log.error('response:', err.response.data);\n                    log.debug(err.response.status);\n                    //console.log(err.response.headers);\n                } else if (err.request) {\n                    // The request was made but no response received.\n                    log.error('No response');\n                    log.debug(err.request);\n                } else {\n                    log.error('Error', err.message);\n                }\n                throw err;\n            });\n    }\n\n    /**\n     * Initialises the instance with the required historic data.\n     * No other function can be run until init() is completed.\n     */\n    async init() {\n        this._ready = true;\n        const info = await this.apiCommand(BinanceCommands.info);\n        log.info('Local/Server time difference = '\n            +`${Date.now() - info.serverTime}ms`);\n\n        // Init the API request limits\n        this.limits = new Limits();\n        for (const limit of info.rateLimits) {\n            this.limits.setLimit(\n                limit.rateLimitType, parseInt(limit.limit), limit.interval\n            );\n        }\n\n        if (info.exchangeFilters.length > 0) throw 'Exchange filters now present.';\n\n        for (const pair of info.symbols) {\n            this._coinPairInfo.set(pair.symbol, pair);\n        }\n\n        return true;\n    }\n\n    /**\n     * Get the current time according to this instance.\n     * @returns {number} The time in ms relative to some epoch.\n     */\n    getTimestamp() {\n        return Date.now();\n    }\n\n    /**\n     * Load a binance account that may then be used for commands requiring\n     * authentication.\n     * @param {string} name     The account name used to refer to the account\n     *                          in future API calls.\n     * @param {string} key      The Binance key for the account. Usually a\n     *                          64 char string.\n     * @param {string} secret   The Binance secret for the key. Usually a\n     *                          64 char string.\n     */\n    async loadAccount(name, key, secret) {\n        if (!this._ready) throw 'BinanceAccess not ready.';\n        if (this.accounts.has(name)) throw 'Account already exists.';\n        const account = new Account(this, name, key, secret);\n        this.accounts.set(name, account);\n        await account.syncBalances();\n    }\n\n    /**\n     * Get a CoinPair object for the given two coins. Using this method\n     * is preferable to directly creating a CoinPair as it is safer and\n     * avoids duplication.\n     * @param {string} base     The code representing the base coin.\n     * @param {string} quote    The code representing the coin which\n     *                          base is traded against.\n     * @return {CoinPair}       An instance of a CoinPair object.\n     * @throws {Error}          If the coin pair is not available on the\n     *                          exchange.\n     */\n    getCoinPair(base, quote) {\n        const symbol = `${base}${quote}`;\n        if (!this._coinPairs.has(base)) this._coinPairs.set(base, new Map());\n        const baseMap = this._coinPairs.get(base);\n        if (!baseMap.has(quote)) {\n            if (!this._coinPairInfo.has(symbol)) {\n                throw new Error(`${symbol} not available on exchange`);\n            }\n            const coinPair = new CoinPair(\n                base, quote, this._coinPairInfo.get(symbol)\n            );\n            baseMap.set(quote, coinPair);\n            return coinPair;\n        }\n        return baseMap.get(quote);\n    }\n}\n",
+    "content": "import axios from 'axios';\nimport crypto from 'crypto';\nimport querystring from 'querystring';\n\nimport {intervalToMs} from './utils.mjs';\nimport {CoinPair} from './coin.mjs';\nimport {Account} from './account.mjs';\nimport {StreamManager} from './binancestream.mjs';\nimport {log} from './log.mjs';\n\n/**\n * Command descriptions that are passed to {@link BinanceAccess.apiCommand}.\n * @access public\n */\nexport const BinanceCommands = {\n    time: {\n        name: 'exchangeTime',\n        url: 'api/v1/time',\n        weight: 1,\n        limitType: 'REQUESTS'\n    },\n    info: {\n        name: 'exchangeInfo',\n        url: 'api/v1/exchangeInfo',\n        weight: 1,\n        limitType: 'REQUESTS'\n    },\n    klines: {\n        name: 'klines',\n        url: 'api/v1/klines',\n        weight: 1,\n        limitType: 'REQUESTS',\n        reqParams: ['symbol', 'interval']\n    },\n    openOrdersForSymbol: {\n        name: 'openOrdersForSymbol',\n        url:       '/api/v3/openOrders',\n        weight:    1,\n        limitType: 'REQUESTS',\n        reqAuth:   true,\n        reqParams: ['symbol', 'timestamp']\n    },\n    accountInfo: {\n        name:   'accountInfo',\n        url:    '/api/v3/account',\n        weight: 5,\n        limitType:  'REQUESTS',\n        reqAuth:    true,\n        reqParams:  ['timestamp']\n    },\n    available: {\n        name: 'apiAvailable',\n        url: 'api/v1/ping',\n        weight: 1\n    }\n};\n\n/**\n * @access package\n */\nclass Limits {\n    constructor() {\n        this._limits = new Map();\n    }\n\n    setLimit(type, max, interval) {\n        if (!this._limits.has(type)) {\n            this._limits.set(type, []);\n        }\n\n        const intervalMs = intervalToMs(interval);\n        const limits = this._limits.get(type);\n\n        // Overwrite any existing limit of this interval\n        for (const limit of limits) {\n            if (limit.interval == intervalMs) {\n                limit.max = max;\n                return;\n            }\n        }\n\n        limits.push({\n            max: max,\n            remain: max,\n            interval: intervalMs,\n            start: Date.now()\n        });\n    }\n\n    // Tests against a limit and returns false if the limit is exceeded.\n    // If the limit is not exceed, true is returned and an operation is\n    // recorded against the limit.\n    testAndExecute(type) {\n        const limits = this._limits.get(type);\n        if (limits === undefined) {\n            log.info(this._limits);\n            throw `${type} is not a valid limit type`;\n        }\n\n        for (const limit of limits) {\n            if (limit.remain < 1) return false;\n            limit.remain --;\n        }\n\n        return true;\n    }\n\n    update(time) {\n        for (const limitType of this._limits) {\n            for (const limit of limitType) {\n                if (time - limit.start > limit.interval) {\n                    limit.start = time;\n                    limit.remain = limit.max;\n                }\n            }\n        }\n    }\n}\n\n/**\n * The main entry point for access to Binance.\n * Each application requires at least one instance of this class.\n * See {@link apiCommand} for an example on using this class.\n * @access public\n */\nexport class BinanceAccess {\n    /**\n     * Create an instance of BinanceAccess. Generally an instance created\n     * via this constructor will need init() called before use.\n     * @param {number} timeout  The number of ms to use as timeout for REST API\n     *                          calls.\n     */\n    constructor(timeout=3000) {\n        this._ready = false;\n        this.base = 'https://api.binance.com/';\n        this._axiosInst = axios.create({\n            baseURL: this.base,\n            timeout: timeout\n        });\n        this.limits = null;\n        this.accounts = new Map();\n        this.streams = new StreamManager();\n        this._coinPairInfo = new Map();\n        this._coinPairs = new Map();\n    }\n\n    /**\n     * Execute a Binance REST API command.\n     * Documentation for the Binance REST API is at\n     * https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md\n     * @param {object} cmd      A command definition from\n     *                          @link{BinanceCommands}.\n     * @param {object} params   An object containing parameters passed to the\n     *                          API call, stored as key,value pairs.\n     * @param {string} accountName  The name of the Binance account to use for\n     *                          authentication. The account must have been\n     *                          created with {@link loadAccount}.\n     *\n     * @returns The object returned by the Binance API call (see Binance docs)\n     * @throws {Error}  In the following situations (see error string):\n     *                  - BinanceAccess not initialised,\n     *                  - Required parameters missing,\n     *                  - Authentication required but no account given,\n     *                  - Error returned by Binance\n     *                  - Network error\n     *.\n     * @example\n     *   const binance = new BinanceAccess();\n     *   await binance.init();\n     *   binance.loadAccount('Zaphod', MyKey, MySecret);\n     *   const info = await binance.apiCommand(\n     *       BinanceCommands.accountInfo,\n     *       {timestamp: this.binance.getTimestamp()},\n     *       'Zaphod'\n     *   );\n     */\n    async apiCommand(cmd, params={}, accountName=null) {\n        if (!this._ready) throw 'BinanceAccess not ready.';\n        if (cmd === undefined) return false;\n\n        if (this.limits && !this.limits.testAndExecute(cmd.limitType)) {\n            return false;\n        }\n\n        if (cmd.hasOwnProperty('reqParams')) {\n            let paramsOk = true;\n            let missing = [];\n            for (const param of cmd.reqParams) {\n                if (!params.hasOwnProperty(param)) {\n                    paramsOk = false;\n                    missing.push(param);\n                }\n            }\n            if (!paramsOk) {\n                throw `${cmd.name} missing parameters: ${missing.join()}`;\n            }\n        }\n\n        const requestConfig = {params: params};\n\n        if (cmd.reqAuth) {\n            if (accountName === null) throw `Account required for ${cmd.name}`;\n            if (!this.accounts.has(accountName)) {\n                throw new Error(`Account ${accountName} not found.`);\n            }\n            const account = this.accounts.get(accountName);\n            requestConfig.headers = {'X-MBX-APIKEY': account.key};\n            const totalParams = querystring.stringify(params);\n            const hmac = crypto.createHmac('sha256', account.secret);\n            requestConfig.params.signature = hmac.update(totalParams).digest('hex');\n        }\n\n        return this._axiosInst.get(cmd.url, requestConfig)\n            .then(response => {\n                log.debug(\n                    `${cmd.url} returned ${response.statusText} `+\n                    `(${response.status})`\n                );\n                return response.data;\n            })\n            .catch(err => {\n                log.error(`${cmd.url} returned error.`);\n                log.debug('requestConfig:', requestConfig);\n                if (err.response) {\n                    log.error('response:', err.response.data);\n                    log.debug(err.response.status);\n                    //console.log(err.response.headers);\n                } else if (err.request) {\n                    // The request was made but no response received.\n                    log.error('No response');\n                    log.debug(err.request);\n                } else {\n                    log.error('Error', err.message);\n                }\n                throw err;\n            });\n    }\n\n    /**\n     * Initialises the instance with the required historic data.\n     * No other function can be run until init() is completed.\n     */\n    async init() {\n        this._ready = true;\n        const info = await this.apiCommand(BinanceCommands.info);\n        log.info('Local/Server time difference = '\n            +`${Date.now() - info.serverTime}ms`);\n\n        // Init the API request limits\n        this.limits = new Limits();\n        for (const limit of info.rateLimits) {\n            this.limits.setLimit(\n                limit.rateLimitType, parseInt(limit.limit), limit.interval\n            );\n        }\n\n        if (info.exchangeFilters.length > 0) throw 'Exchange filters now present.';\n\n        for (const pair of info.symbols) {\n            this._coinPairInfo.set(pair.symbol, pair);\n        }\n\n        return true;\n    }\n\n    /**\n     * Get the current time according to this instance.\n     * @returns {number} The time in ms relative to some epoch.\n     */\n    getTimestamp() {\n        return Date.now();\n    }\n\n    /**\n     * Load a binance account that may then be used for commands requiring\n     * authentication.\n     * @param {string} name     The account name used to refer to the account\n     *                          in future API calls.\n     * @param {string} key      The Binance key for the account. Usually a\n     *                          64 char string.\n     * @param {string} secret   The Binance secret for the key. Usually a\n     *                          64 char string.\n     */\n    async loadAccount(name, key, secret) {\n        if (!this._ready) throw 'BinanceAccess not ready.';\n        if (this.accounts.has(name)) throw 'Account already exists.';\n        const account = new Account(this, name, key, secret);\n        this.accounts.set(name, account);\n        await account.syncBalances();\n    }\n\n    /**\n     * Get a CoinPair object for the given two coins. Using this method\n     * is preferable to directly creating a CoinPair as it is safer and\n     * avoids duplication.\n     * @param {string} base     The code representing the base coin.\n     * @param {string} quote    The code representing the coin which\n     *                          base is traded against.\n     * @return {CoinPair}       An instance of a CoinPair object.\n     * @throws {Error}          If the coin pair is not available on the\n     *                          exchange.\n     */\n    getCoinPair(base, quote) {\n        const symbol = `${base}${quote}`;\n        if (!this._coinPairs.has(base)) this._coinPairs.set(base, new Map());\n        const baseMap = this._coinPairs.get(base);\n        if (!baseMap.has(quote)) {\n            if (!this._coinPairInfo.has(symbol)) {\n                throw new Error(`${symbol} not available on exchange`);\n            }\n            const coinPair = new CoinPair(\n                base, quote, this._coinPairInfo.get(symbol)\n            );\n            baseMap.set(quote, coinPair);\n            return coinPair;\n        }\n        return baseMap.get(quote);\n    }\n}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/binance.mjs",
     "access": "public",
@@ -1299,7 +1299,7 @@
     "__docId__": 62,
     "kind": "file",
     "name": "src/indicator.mjs",
-    "content": "import Big from 'big.js';\nimport {ObservableMixin} from './observable';\nimport {BinanceStreamKlines} from './binancestream.mjs';\nimport {TimeSeriesData} from './timeseries';\nimport {findCross} from './utils';\nimport {log} from './log';\n\nBig.DP = 8;\n\n// Will update based on ticker.\n// But will also need historical data.\nexport class Indicator extends ObservableMixin(Object) {\n    constructor(binance, coinPair) {\n        super();\n        this.binance = binance;\n        this.coinPair = coinPair;\n    }\n\n    getCurrent() {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class EMAIndicator extends Indicator {\n    constructor(binance, coinPair, nPeriods, interval) {\n        super(binance, coinPair);\n        this.nPeriods = nPeriods;\n        this.interval = interval;\n\n        this.source = null;\n        this.data = new TimeSeriesData(interval);\n    }\n\n    async init() {\n        // Set up stream\n        this.stream = await BinanceStreamKlines.create(\n            this.binance,\n            this.coinPair.symbol,\n            this.interval,\n            'k.c'   // close price\n        );\n        // Get the history we will need to compute EMA.\n        // getHistory returns a TimeSeriesData which we will use from now on.\n        // FIXME: Should get more history and pre-compute EMA for a while\n        // because it takes a while to converge to the correct value.\n        this.source = await this.stream.getHistory(1);\n        // Feed stream data in the TimeSeriesData store\n        this.stream.addObserver('newData', this.source.addData, this.source);\n\n        // FIXME: Not sure what events would be best coming from the\n        //        TimeSeries class yet.\n        //const showCalc = () => log.debug(\n        //    `${this.coinPair.symbol} ${this.interval}`\n        //    +` EMA${this.nPeriods} = ${this._calculate()}`\n        //);\n\n        this.source.addObserver('extended', this._calculate, this);\n        this.source.addObserver('replaceRecent', this._calculate, this);\n\n        //showCalc();\n    }\n\n    static async createAndInit(binance, coinPair, nPeriods, interval) {\n        log.info(`Creating EMAIndicator for ${coinPair.symbol} (${nPeriods}) ${interval}`);\n        const ema = new EMAIndicator(binance, coinPair, nPeriods, interval);\n        await ema.init();\n        return ema;\n    }\n\n    _calculate() {\n        const time = this.binance.getTimestamp();\n        const current = this.source.getRecent(1, time)[0];\n        // Either last EMA if available or last close price\n        let last = NaN;\n        last = this.data.getRecent(2, time)[0];\n        if (last === undefined) last = current;\n\n        // Weighting for most recent close price.\n        const multiplier = Big(2).div(this.nPeriods + 1);\n\n        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);\n        this.data.addData(time, ema);\n        this.notifyObservers('update', time, ema);\n        return ema;\n    }\n}\n\nexport class MultiEMAIndicator extends Indicator {\n    constructor(binance, coinPair, interval, lengths) {\n        super(binance, coinPair);\n        this.lengths = lengths;\n        this.lengths.sort((a,b) => b - a);\n        this.interval = interval;\n        this.emas = [];\n        this.orderedEmas = null;\n        this.data = new TimeSeriesData(interval);\n        this.currentTime = 0;\n        this.nUpdates = 0;\n        this.nFullUpdates = 0;\n    }\n\n    async init() {\n        for (const length of this.lengths) {\n            const ema = await EMAIndicator.createAndInit(\n                this.binance,\n                this.coinPair,\n                length,\n                this.interval\n            );\n            this.emas.push(ema);\n        }\n        for (const ema of this.emas) {\n            // FIXME: Should this just be closed prices?\n            // eslint-disable-next-line no-unused-vars\n            ema.addObserver('update', (time, ema) => {\n                if (time > this.currentTime) {\n                    this.currentTime = time;\n                    this.nUpdates = 0;\n                }\n                this.nUpdates ++;\n                if (this.nUpdates == this.lengths.length) {\n                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);\n                    this._update(time);\n                }\n            });\n        }\n    }\n\n    _update(time) {\n        const slow = this.emas[0].data.getRecent(1, time)[0];\n        const fast = this.emas[this.emas.length - 1].data.getRecent(1, time)[0];\n        const newOrder = [];\n\n        this.nFullUpdates ++;\n\n        for (const ema of this.emas) {\n            // @TODO getRecent, given the same time should always return the\n            // same price. Need to add a test for this. Exception is if\n            // the period isn't closed.\n            // If not doing closed prices. We may want to freeze the price here\n            // and store a wrapper rather than the actual ema instance.\n            newOrder.push(ema);\n            //{\n            //    ind:    ema,\n            //    length: ema.nPeriods,\n            //    price:  ema.data.getRecent(1, time)[0]\n            //});\n        }\n        newOrder.sort((a,b) => {\n            const aPrice = a.data.getRecent(1,time)[0];\n            const bPrice = b.data.getRecent(1,time)[0];\n            const priceCmp = aPrice.cmp(bPrice);\n            //log.debug(priceCmp, b.nPeriods, a.nPeriods);\n            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;\n        });\n\n        if (this.orderedEmas === null) {\n            this.orderedEmas = newOrder;\n            return;\n        }\n\n        if (this.nFullUpdates < 21) {\n            log.debug(this.nFullUpdates);\n            return;\n        }\n        this.notifyObservers('update');\n\n        for (let i = 0; i < newOrder.length; i++) {\n            log.debug(\n                '  ', this.orderedEmas[i].nPeriods, newOrder[i].nPeriods,\n                ':', newOrder[i].data.getRecent(1, time)[0].toString()\n            );\n        }\n\n        const cross = findCross(\n                this.orderedEmas, newOrder, fast.nPeriods, slow.nPeriods, (a) => a.nPeriods\n            );\n        this.orderedEmas = newOrder;\n\n        log.debug(cross);\n\n        if (cross.crossed === []) return;\n\n        if (cross.fastSlowCross) {\n            // FIXME: Should we provide prices of emas?\n            this.notifyObservers('fastSlowCross', cross.crossed, time);\n            return;\n        }\n\n        this.notifyObservers('cross', cross.crossed, time);\n    }\n\n    static async createAndInit(binance, coinPair, interval, lengths) {\n        log.info(`Creating MultiEMAIndicator for ${coinPair.symbol} (${interval}) ${lengths}`);\n        const ind = new MultiEMAIndicator(binance, coinPair, interval, lengths);\n        await ind.init();\n        return ind;\n    }\n}\n",
+    "content": "import Big from 'big.js';\nimport {ObservableMixin} from './observable';\nimport {BinanceStreamKlines} from './binancestream.mjs';\nimport {TimeSeriesData} from './timeseries';\nimport {findCross, chartIntervalToMs} from './utils';\nimport {log} from './log';\n\nBig.DP = 8;\n\n// Will update based on ticker.\n// But will also need historical data.\nexport class Indicator extends ObservableMixin(Object) {\n    constructor(binance, coinPair) {\n        super();\n        this.binance = binance;\n        this.coinPair = coinPair;\n    }\n\n    getCurrent() {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class EMAIndicator extends Indicator {\n    constructor(binance, coinPair, nPeriods, interval) {\n        super(binance, coinPair);\n        this.nPeriods = nPeriods;\n        this.interval = interval;\n        this.intervalMs = chartIntervalToMs(this.interval);\n\n        this.source = null;\n        this.data = new TimeSeriesData(interval);\n    }\n\n    async init(getHistory=0) {\n        // Set up stream\n        this.stream = await BinanceStreamKlines.create(\n            this.binance,\n            this.coinPair.symbol,\n            this.interval,\n            'k.c'   // close price\n        );\n        // Get the history we will need to compute EMA.\n        // getHistory returns a TimeSeriesData which we will use from now on.\n        this.source = await this.stream.getHistory(Math.max(getHistory+1, 1));\n\n        log.debug(`EMAIndicator(${this.nPeriods}): Calculating history.`);\n        const currentTime = this.binance.getTimestamp();\n        for (\n            let time = currentTime - getHistory * this.intervalMs;\n            time < currentTime;\n            time += this.intervalMs\n        ) {\n            this._calculate(time);\n        }\n\n        // Feed stream data in the TimeSeriesData store\n        this.stream.addObserver('newData', this.source.addData, this.source);\n\n        this.source.addObserver('extended', (data,time) => this._calculate(time));\n        this.source.addObserver('replaceRecent', (data,time) => this._calculate(time));\n    }\n\n    static async createAndInit(binance, coinPair, nPeriods, interval, getHistory=0) {\n        log.info(`Creating EMAIndicator for ${coinPair.symbol} (${nPeriods}) ${interval}`);\n        const ema = new EMAIndicator(binance, coinPair, nPeriods, interval);\n        await ema.init(getHistory);\n        return ema;\n    }\n\n    _calculate(time = this.binance.getTimestamp()) {\n        const current = this.source.getAt(time);\n        if (current === undefined) throw new Error('Data missing.');\n        // Either last EMA if available or last close price\n        let last = this.data.getAt(time - this.intervalMs);\n        if (last === undefined) last = current;\n\n        // Weighting for most recent close price.\n        const multiplier = Big(2).div(this.nPeriods + 1);\n\n        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);\n        this.data.addData(time, ema);\n        this.notifyObservers('update', time, ema, current);\n        return ema;\n    }\n}\n\nexport class MultiEMAIndicator extends Indicator {\n    constructor(binance, coinPair, interval, lengths) {\n        super(binance, coinPair);\n        this.lengths = lengths;\n        this.lengths.sort((a,b) => b - a);\n        this.interval = interval;\n        this.emas = [];\n        this.orderedEmas = null;\n        this.data = new TimeSeriesData(interval);\n        this.currentTime = 0;\n        this.nUpdates = 0;\n        this.currentPrice = null;\n        this.slow = Math.max(...lengths);\n        this.fast = Math.min(...lengths);\n    }\n\n    async init() {\n        // When calculating historic values, start at 20 candles prior to the current.\n        const history = 20;\n\n        for (const length of this.lengths) {\n            const ema = await EMAIndicator.createAndInit(\n                this.binance,\n                this.coinPair,\n                length,\n                this.interval,\n                history\n            );\n            this.emas.push(ema);\n        }\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug('MultiEMA: Calculating historic values');\n        const currentTime = this.binance.getTimestamp();\n        const intervalMs = chartIntervalToMs(this.interval);\n        for (\n            let time = currentTime - history * intervalMs;\n            time < currentTime;\n            time += this.interval\n        ) {\n            this._update(time);\n        }\n\n        for (const ema of this.emas) {\n            // FIXME: Should this just be closed prices?\n            // eslint-disable-next-line no-unused-vars\n            ema.addObserver('update', (time, ema, price) => {\n                if (time > this.currentTime) {\n                    this.currentTime = time;\n                    this.nUpdates = 0;\n                }\n                this.currentPrice = price;\n                this.nUpdates ++;\n                if (this.nUpdates == this.lengths.length) {\n                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);\n                    this._update(time);\n                }\n            });\n        }\n    }\n\n    _update(time) {\n        const newOrder = [];\n\n        for (const ema of this.emas) newOrder.push(ema);\n\n        // Currently in visual order - when price increasing\n        // index 0 will be fastest EMA, when decreasing index 0 will be slowest.\n        // Highest price is index 0.\n        newOrder.sort((a,b) => {\n            const aPrice = a.data.getAt(time);\n            const bPrice = b.data.getAt(time);\n\n            if (aPrice === undefined || bPrice === undefined) {\n                throw new Error('MultiEMA: Price data missing.');\n            }\n\n            const priceCmp = bPrice.cmp(aPrice);\n            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;\n        });\n\n        if (this.orderedEmas === null) {\n            this.orderedEmas = newOrder;\n            return;\n        }\n\n        this.notifyObservers('update');\n\n        for (let i = 0; i < newOrder.length; i++) {\n            log.debug(\n                '  ', newOrder[i].nPeriods, 'was(', this.orderedEmas[i].nPeriods, ')',\n                ':', newOrder[i].data.getAt(time).toString()\n            );\n        }\n\n        const cross = findCross(\n            this.orderedEmas, newOrder, this.fast, this.slow, (a) => a.nPeriods\n        );\n        this.orderedEmas = newOrder;\n\n        const crossDebug = [];\n        for (const crossEma of cross.crossed) {\n            crossDebug.push(crossEma.nPeriods);\n        }\n        log.debug(cross.fastSlowCross, crossDebug);\n\n        if (cross.crossed.length == 0) return;\n\n        if (cross.fastSlowCross) {\n            // FIXME: Should we provide prices of emas?\n            // Current price might be even more useful.\n            this.notifyObservers('fastSlowCross', cross.crossed, time, this.currentPrice);\n            return;\n        }\n\n        this.notifyObservers('cross', cross.crossed, time, this.currentPrice);\n    }\n\n    static async createAndInit(binance, coinPair, interval, lengths) {\n        log.info(`Creating MultiEMAIndicator for ${coinPair.symbol} (${interval}) ${lengths}`);\n        const ind = new MultiEMAIndicator(binance, coinPair, interval, lengths);\n        await ind.init();\n        return ind;\n    }\n}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/indicator.mjs",
     "access": "public",
@@ -1396,13 +1396,13 @@
   {
     "__docId__": 68,
     "kind": "member",
-    "name": "source",
+    "name": "intervalMs",
     "memberof": "src/indicator.mjs~EMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#source",
+    "longname": "src/indicator.mjs~EMAIndicator#intervalMs",
     "access": "public",
     "description": null,
-    "lineNumber": 30,
+    "lineNumber": 29,
     "undocument": true,
     "type": {
       "types": [
@@ -1413,10 +1413,10 @@
   {
     "__docId__": 69,
     "kind": "member",
-    "name": "data",
+    "name": "source",
     "memberof": "src/indicator.mjs~EMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#data",
+    "longname": "src/indicator.mjs~EMAIndicator#source",
     "access": "public",
     "description": null,
     "lineNumber": 31,
@@ -1429,6 +1429,23 @@
   },
   {
     "__docId__": 70,
+    "kind": "member",
+    "name": "data",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#data",
+    "access": "public",
+    "description": null,
+    "lineNumber": 32,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 71,
     "kind": "method",
     "name": "init",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1438,13 +1455,23 @@
     "longname": "src/indicator.mjs~EMAIndicator#init",
     "access": "public",
     "description": null,
-    "lineNumber": 34,
+    "lineNumber": 35,
     "undocument": true,
-    "params": [],
+    "params": [
+      {
+        "name": "getHistory",
+        "optional": true,
+        "types": [
+          "number"
+        ],
+        "defaultRaw": 0,
+        "defaultValue": "0"
+      }
+    ],
     "return": null
   },
   {
-    "__docId__": 71,
+    "__docId__": 72,
     "kind": "member",
     "name": "stream",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1452,7 +1479,7 @@
     "longname": "src/indicator.mjs~EMAIndicator#stream",
     "access": "public",
     "description": null,
-    "lineNumber": 36,
+    "lineNumber": 37,
     "undocument": true,
     "type": {
       "types": [
@@ -1461,7 +1488,7 @@
     }
   },
   {
-    "__docId__": 73,
+    "__docId__": 74,
     "kind": "method",
     "name": "createAndInit",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1471,7 +1498,7 @@
     "longname": "src/indicator.mjs~EMAIndicator.createAndInit",
     "access": "public",
     "description": null,
-    "lineNumber": 63,
+    "lineNumber": 64,
     "undocument": true,
     "params": [
       {
@@ -1497,6 +1524,15 @@
         "types": [
           "*"
         ]
+      },
+      {
+        "name": "getHistory",
+        "optional": true,
+        "types": [
+          "number"
+        ],
+        "defaultRaw": 0,
+        "defaultValue": "0"
       }
     ],
     "return": {
@@ -1506,7 +1542,7 @@
     }
   },
   {
-    "__docId__": 74,
+    "__docId__": 75,
     "kind": "method",
     "name": "_calculate",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1516,10 +1552,18 @@
     "longname": "src/indicator.mjs~EMAIndicator#_calculate",
     "access": "private",
     "description": null,
-    "lineNumber": 70,
+    "lineNumber": 71,
     "undocument": true,
     "ignore": true,
-    "params": [],
+    "params": [
+      {
+        "name": "time",
+        "optional": true,
+        "types": [
+          "*"
+        ]
+      }
+    ],
     "return": {
       "types": [
         "*"
@@ -1527,7 +1571,7 @@
     }
   },
   {
-    "__docId__": 75,
+    "__docId__": 76,
     "kind": "class",
     "name": "MultiEMAIndicator",
     "memberof": "src/indicator.mjs",
@@ -1546,7 +1590,7 @@
     ]
   },
   {
-    "__docId__": 76,
+    "__docId__": 77,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1560,7 +1604,7 @@
     "undocument": true
   },
   {
-    "__docId__": 77,
+    "__docId__": 78,
     "kind": "member",
     "name": "lengths",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1577,7 +1621,7 @@
     }
   },
   {
-    "__docId__": 78,
+    "__docId__": 79,
     "kind": "member",
     "name": "interval",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1594,7 +1638,7 @@
     }
   },
   {
-    "__docId__": 79,
+    "__docId__": 80,
     "kind": "member",
     "name": "emas",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1611,7 +1655,7 @@
     }
   },
   {
-    "__docId__": 80,
+    "__docId__": 81,
     "kind": "member",
     "name": "orderedEmas",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1628,7 +1672,7 @@
     }
   },
   {
-    "__docId__": 81,
+    "__docId__": 82,
     "kind": "member",
     "name": "data",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1645,7 +1689,7 @@
     }
   },
   {
-    "__docId__": 82,
+    "__docId__": 83,
     "kind": "member",
     "name": "currentTime",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1662,7 +1706,7 @@
     }
   },
   {
-    "__docId__": 83,
+    "__docId__": 84,
     "kind": "member",
     "name": "nUpdates",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1679,24 +1723,58 @@
     }
   },
   {
-    "__docId__": 84,
+    "__docId__": 85,
     "kind": "member",
-    "name": "nFullUpdates",
+    "name": "currentPrice",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#nFullUpdates",
+    "longname": "src/indicator.mjs~MultiEMAIndicator#currentPrice",
     "access": "public",
     "description": null,
     "lineNumber": 99,
     "undocument": true,
     "type": {
       "types": [
-        "number"
+        "*"
       ]
     }
   },
   {
-    "__docId__": 85,
+    "__docId__": 86,
+    "kind": "member",
+    "name": "slow",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#slow",
+    "access": "public",
+    "description": null,
+    "lineNumber": 100,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 87,
+    "kind": "member",
+    "name": "fast",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#fast",
+    "access": "public",
+    "description": null,
+    "lineNumber": 101,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 88,
     "kind": "method",
     "name": "init",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1706,13 +1784,13 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#init",
     "access": "public",
     "description": null,
-    "lineNumber": 102,
+    "lineNumber": 104,
     "undocument": true,
     "params": [],
     "return": null
   },
   {
-    "__docId__": 88,
+    "__docId__": 92,
     "kind": "method",
     "name": "_update",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1722,7 +1800,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#_update",
     "access": "private",
     "description": null,
-    "lineNumber": 129,
+    "lineNumber": 149,
     "undocument": true,
     "ignore": true,
     "params": [
@@ -1736,7 +1814,7 @@
     "return": null
   },
   {
-    "__docId__": 91,
+    "__docId__": 95,
     "kind": "method",
     "name": "createAndInit",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1746,7 +1824,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator.createAndInit",
     "access": "public",
     "description": null,
-    "lineNumber": 193,
+    "lineNumber": 206,
     "undocument": true,
     "params": [
       {
@@ -1781,10 +1859,10 @@
     }
   },
   {
-    "__docId__": 92,
+    "__docId__": 96,
     "kind": "file",
     "name": "src/log.mjs",
-    "content": "import {TelegramBot} from './telegram.mjs';\n\nconst Console = console;\n\n/**\n * @access package\n */\nclass Log {\n    constructor() {\n        if (process.env.TELEGRAM_KEY !== undefined\n            &&\n            process.env.TELEGRAM_CHANNEL !== undefined\n        ) {\n            this.telegram = new TelegramBot(\n                process.env.TELEGRAM_KEY,\n                process.env.TELEGRAM_CHANNEL,\n                process.env.NET_REQUEST_TIMEOUT || 3000\n            );\n        }\n    }\n\n    error(...args) {\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    notify(...args) {\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    info(...args) {\n        Console.log(...args);\n    }\n\n    debug(...args) {\n        Console.log(...args);\n    }\n}\n\nexport const log = new Log();\n\n\n",
+    "content": "import {TelegramBot} from './telegram.mjs';\n\nconst Console = console;\n\n/**\n * Options for differing verbosity of log output.\n * @package\n */\nexport const LogLevelType = {\n    none:   0,\n    error:  1,\n    notify: 2,\n    info:   4,\n    debug:  8\n};\n\n/**\n * @protected\n */\nclass Log {\n    /**\n     * Create a logger.\n     * If TELEGRAM_KEY and TELEGRAM_CHANNEL environment variables are set,\n     * then a Telegram bot will be instantiated for output for some log\n     * verbosity levels.\n     */\n    constructor() {\n        /**\n         * Set to a value from {@link LogLevelType} to set the verbosity of output.\n         */\n        this.level = LogLevelType.debug;\n\n        if (process.env.TELEGRAM_KEY !== undefined\n            &&\n            process.env.TELEGRAM_CHANNEL !== undefined\n        ) {\n            this.telegram = new TelegramBot(\n                process.env.TELEGRAM_KEY,\n                process.env.TELEGRAM_CHANNEL,\n                process.env.NET_REQUEST_TIMEOUT || 3000\n            );\n        }\n    }\n\n    /**\n     * Output information about an error.\n     * Will write to the Telegram bot if configured.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    error(...args) {\n        if (this.level < LogLevelType.error) return;\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    /**\n     * Output notification information. Notifications are considered to be\n     * of higher importance than informative output.\n     * Will write to the Telegram bot if configured.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    notify(...args) {\n        if (this.level < LogLevelType.notify) return;\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    /**\n     * Output an informative message. Considered to be less important than\n     * notifications.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    info(...args) {\n        if (this.level < LogLevelType.info) return;\n        Console.log(...args);\n    }\n\n    /**\n     * Output debug information.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    debug(...args) {\n        if (this.level < LogLevelType.debug) return;\n        Console.log(...args);\n    }\n}\n\n/**\n * An instance of the Log for use within the package.\n * @package\n */\nexport const log = new Log();\n\n\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/log.mjs",
     "access": "public",
@@ -1792,7 +1870,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 93,
+    "__docId__": 97,
     "kind": "variable",
     "name": "Console",
     "memberof": "src/log.mjs",
@@ -1813,19 +1891,39 @@
     "ignore": true
   },
   {
-    "__docId__": 94,
+    "__docId__": 98,
+    "kind": "variable",
+    "name": "LogLevelType",
+    "memberof": "src/log.mjs",
+    "static": true,
+    "longname": "src/log.mjs~LogLevelType",
+    "access": "package",
+    "export": true,
+    "importPath": "cryptotrader9000/src/log.mjs",
+    "importStyle": "{LogLevelType}",
+    "description": "Options for differing verbosity of log output.",
+    "lineNumber": 9,
+    "ignore": true,
+    "type": {
+      "types": [
+        "{\"none\": *, \"error\": number, \"notify\": number, \"info\": number, \"debug\": number}"
+      ]
+    }
+  },
+  {
+    "__docId__": 99,
     "kind": "variable",
     "name": "log",
     "memberof": "src/log.mjs",
     "static": true,
     "longname": "src/log.mjs~log",
-    "access": "public",
+    "access": "package",
     "export": true,
     "importPath": "cryptotrader9000/src/log.mjs",
     "importStyle": "{log}",
-    "description": null,
-    "lineNumber": 41,
-    "undocument": true,
+    "description": "An instance of the Log for use within the package.",
+    "lineNumber": 104,
+    "ignore": true,
     "type": {
       "types": [
         "src/log.mjs~Log"
@@ -1833,23 +1931,24 @@
     }
   },
   {
-    "__docId__": 95,
+    "__docId__": 100,
     "kind": "class",
     "name": "Log",
     "memberof": "src/log.mjs",
     "static": true,
     "longname": "src/log.mjs~Log",
-    "access": "package",
+    "access": "protected",
     "export": true,
     "importPath": "cryptotrader9000/src/log.mjs",
     "importStyle": null,
     "description": "",
-    "lineNumber": 8,
+    "lineNumber": 20,
     "pseudoExport": true,
-    "interface": false
+    "interface": false,
+    "ignore": true
   },
   {
-    "__docId__": 96,
+    "__docId__": 101,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/log.mjs~Log",
@@ -1858,12 +1957,27 @@
     "static": false,
     "longname": "src/log.mjs~Log#constructor",
     "access": "public",
-    "description": null,
-    "lineNumber": 9,
-    "undocument": true
+    "description": "Create a logger.\nIf TELEGRAM_KEY and TELEGRAM_CHANNEL environment variables are set,\nthen a Telegram bot will be instantiated for output for some log\nverbosity levels.",
+    "lineNumber": 27
   },
   {
-    "__docId__": 97,
+    "__docId__": 102,
+    "kind": "member",
+    "name": "level",
+    "memberof": "src/log.mjs~Log",
+    "static": false,
+    "longname": "src/log.mjs~Log#level",
+    "access": "public",
+    "description": "Set to a value from {@link LogLevelType} to set the verbosity of output.",
+    "lineNumber": 31,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 103,
     "kind": "member",
     "name": "telegram",
     "memberof": "src/log.mjs~Log",
@@ -1871,7 +1985,7 @@
     "longname": "src/log.mjs~Log#telegram",
     "access": "public",
     "description": null,
-    "lineNumber": 14,
+    "lineNumber": 37,
     "undocument": true,
     "type": {
       "types": [
@@ -1880,7 +1994,7 @@
     }
   },
   {
-    "__docId__": 98,
+    "__docId__": 104,
     "kind": "method",
     "name": "error",
     "memberof": "src/log.mjs~Log",
@@ -1889,22 +2003,24 @@
     "static": false,
     "longname": "src/log.mjs~Log#error",
     "access": "public",
-    "description": null,
-    "lineNumber": 22,
-    "undocument": true,
+    "description": "Output information about an error.\nWill write to the Telegram bot if configured.",
+    "lineNumber": 53,
     "params": [
       {
-        "name": "args",
+        "nullable": null,
         "types": [
-          "...*"
+          "...(string|number|object|bool)"
         ],
-        "spread": true
+        "spread": true,
+        "optional": false,
+        "name": "args",
+        "description": "Any number of objects to output. The\n                                 string represented will be concateanted\n                                 with a space character."
       }
     ],
     "return": null
   },
   {
-    "__docId__": 99,
+    "__docId__": 105,
     "kind": "method",
     "name": "notify",
     "memberof": "src/log.mjs~Log",
@@ -1913,22 +2029,24 @@
     "static": false,
     "longname": "src/log.mjs~Log#notify",
     "access": "public",
-    "description": null,
-    "lineNumber": 27,
-    "undocument": true,
+    "description": "Output notification information. Notifications are considered to be\nof higher importance than informative output.\nWill write to the Telegram bot if configured.",
+    "lineNumber": 68,
     "params": [
       {
-        "name": "args",
+        "nullable": null,
         "types": [
-          "...*"
+          "...(string|number|object|bool)"
         ],
-        "spread": true
+        "spread": true,
+        "optional": false,
+        "name": "args",
+        "description": "Any number of objects to output. The\n                                 string represented will be concateanted\n                                 with a space character."
       }
     ],
     "return": null
   },
   {
-    "__docId__": 100,
+    "__docId__": 106,
     "kind": "method",
     "name": "info",
     "memberof": "src/log.mjs~Log",
@@ -1937,22 +2055,24 @@
     "static": false,
     "longname": "src/log.mjs~Log#info",
     "access": "public",
-    "description": null,
-    "lineNumber": 32,
-    "undocument": true,
+    "description": "Output an informative message. Considered to be less important than\nnotifications.",
+    "lineNumber": 82,
     "params": [
       {
-        "name": "args",
+        "nullable": null,
         "types": [
-          "...*"
+          "...(string|number|object|bool)"
         ],
-        "spread": true
+        "spread": true,
+        "optional": false,
+        "name": "args",
+        "description": "Any number of objects to output. The\n                                 string represented will be concateanted\n                                 with a space character."
       }
     ],
     "return": null
   },
   {
-    "__docId__": 101,
+    "__docId__": 107,
     "kind": "method",
     "name": "debug",
     "memberof": "src/log.mjs~Log",
@@ -1961,25 +2081,27 @@
     "static": false,
     "longname": "src/log.mjs~Log#debug",
     "access": "public",
-    "description": null,
-    "lineNumber": 36,
-    "undocument": true,
+    "description": "Output debug information.",
+    "lineNumber": 94,
     "params": [
       {
-        "name": "args",
+        "nullable": null,
         "types": [
-          "...*"
+          "...(string|number|object|bool)"
         ],
-        "spread": true
+        "spread": true,
+        "optional": false,
+        "name": "args",
+        "description": "Any number of objects to output. The\n                                 string represented will be concateanted\n                                 with a space character."
       }
     ],
     "return": null
   },
   {
-    "__docId__": 102,
+    "__docId__": 108,
     "kind": "file",
     "name": "src/main.mjs",
-    "content": "import {BinanceAccess} from './binance.mjs';\nimport {MultiEMAIndicator} from './indicator.mjs';\nimport {log} from './log';\n\n(async function main() {\n    log.info('Initialising exchange access');\n    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);\n    await binance.init();\n    log.info('  Binance access initialised.');\n\n    log.notify('Bot online.');\n\n    await binance.loadAccount(\n        process.env.BINANCEACCOUNT_NAME,\n        process.env.BINANCEACCOUNT_KEY,\n        process.env.BINANCEACCOUNT_SECRET\n    );\n\n    const nulsbtc = binance.getCoinPair('NULS','BTC');\n    // eslint-disable-next-line no-unused-vars\n    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);\n\n    multiEma.addObserver('fastSlowCross', function() {log.debug('fastSlowCross')});\n    multiEma.addObserver('cross', function() {log.debug('Cross')});\n    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update')});\n\n    //const eosbtc = binance.getCoinPair('EOS','BTC');\n    // eslint-disable-next-line no-unused-vars\n    //const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, '15m', [55, 21, 13, 8]);\n})();\n",
+    "content": "import {BinanceAccess} from './binance.mjs';\nimport {MultiEMAIndicator} from './indicator.mjs';\nimport {log, LogLevelType} from './log';\n\nimport Big from 'big.js';\n\n(async function main() {\n    log.info('Initialising exchange access');\n    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);\n    await binance.init();\n    log.info('  Binance access initialised.');\n\n    log.level = LogLevelType.info;\n\n    await binance.loadAccount(\n        process.env.BINANCEACCOUNT_NAME,\n        process.env.BINANCEACCOUNT_KEY,\n        process.env.BINANCEACCOUNT_SECRET\n    );\n\n    const nulsbtc = binance.getCoinPair('NULS','BTC');\n    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '5m', [21, 13, 8]);\n\n    log.notify(`Bot online. Tracking ${multiEma.coinPair.symbol} ${multiEma.interval}.`);\n\n    let buyAt = null;\n    let cumulative = new Big(0);\n\n    // Possibly the world's simplest trading strategy.\n    // Buy when The fast and slow EMA cross and sell when they cross again.\n    multiEma.addObserver('fastSlowCross', (crossed, time, price) => {\n        const message = [];\n        const signal =\n            crossed.findIndex((e) => e.nPeriods == multiEma.slow)\n            <\n            crossed.findIndex((e) => e.nPeriods == multiEma.fast)\n                ? 'sell' : 'buy';\n        message.push(\n            multiEma.coinPair.symbol, multiEma.interval,\n            'Fast and slow EMA cross.',\n            `Signal: ${signal}.`,\n            `Price: ${price.toString()}.`\n        );\n        if (signal == 'buy') {\n            buyAt = price;\n        } else if (buyAt != null) {\n            const diff = price.sub(buyAt);\n            cumulative = cumulative.plus(diff);\n            message.push(\n                'Sold. Buy/sell difference: ', diff.toString(),\n                '. Cumulative gain:', cumulative.toString()\n            );\n        }\n        log.notify(...message);\n    });\n    multiEma.addObserver('cross', function() {log.debug('Cross');});\n    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});\n})();\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/main.mjs",
     "access": "public",
@@ -1987,7 +2109,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 103,
+    "__docId__": 109,
     "kind": "file",
     "name": "src/observable.mjs",
     "content": "/**\n * Apply the Observable pattern to a subclass.\n * @package\n * @example\n *    How to use:\n *\n *    class Player extends ObservableMixin(Object) {\n *        constructor(maxHP) {\n *            super();\n *            this.hp = maxHP;\n *        }\n *\n *        dmg(value) {\n *            const oldHP = this.hp;\n *            this.hp -= value;\n *            if (this.hp <= 0) {\n *                this.notifyObserver('death', oldHP, this.hp);\n *                return;\n *            }\n *            this.notifyObserver('damage', oldHP, this.hp);\n *        }\n *    }\n *\n *    class A {\n *        constructor() {\n *            this.players = [new Player(100), new Player(60)];\n *            this.players[0].addObserver('death', this.playerDied, this, 0);\n *            this.players[0].addObserver('damage', this.playerDamaged, this, 0);\n *            this.players[1].addObserver('death', this.playerDied, this, 1);\n *            this.players[1].addObserver('damage', this.playerDamaged, this, 1);\n *        }\n *\n *        playerDied(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage and died.`);\n *            this.players.splice(playerIndex, 1);\n *        }\n *\n *        playerDamaged(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage.`);\n *        }\n *    }\n *\n *    const a = new A();\n *\n *    while (a.players.length > 0) {\n *        for (player of a.players) {\n *            player.dmg(10);\n *        }\n *    }\n */\nexport const ObservableMixin = superclass => class extends superclass {\n    constructor() {\n        super(...arguments);\n        this.observers = {};\n\n    }\n\n    addObserver(event, fn, useThis, ctxt) {\n        const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);\n        if (this.observers.hasOwnProperty(event)) {\n            this.observers[event].append(boundFn);\n            return;\n        }\n        this.observers[event] = [boundFn];\n    }\n\n    notifyObservers(event, ...args) {\n        if (!this.observers.hasOwnProperty(event))\n            return;\n\n        for (let observer of this.observers[event]) {\n            observer(...args);\n        }\n    }\n};\n\n/**************************************************************************\n**************************************************************************/\n",
@@ -1998,7 +2120,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 104,
+    "__docId__": 110,
     "kind": "function",
     "name": "ObservableMixin",
     "memberof": "src/observable.mjs",
@@ -2015,6 +2137,7 @@
       "   How to use:\n\n   class Player extends ObservableMixin(Object) {\n       constructor(maxHP) {\n           super();\n           this.hp = maxHP;\n       }\n\n       dmg(value) {\n           const oldHP = this.hp;\n           this.hp -= value;\n           if (this.hp <= 0) {\n               this.notifyObserver('death', oldHP, this.hp);\n               return;\n           }\n           this.notifyObserver('damage', oldHP, this.hp);\n       }\n   }\n\n   class A {\n       constructor() {\n           this.players = [new Player(100), new Player(60)];\n           this.players[0].addObserver('death', this.playerDied, this, 0);\n           this.players[0].addObserver('damage', this.playerDamaged, this, 0);\n           this.players[1].addObserver('death', this.playerDied, this, 1);\n           this.players[1].addObserver('damage', this.playerDamaged, this, 1);\n       }\n\n       playerDied(playerIndex, oldValue, newValue) {\n           console.log(`player ${playerIndex} took ${oldValue - newValue} damage and died.`);\n           this.players.splice(playerIndex, 1);\n       }\n\n       playerDamaged(playerIndex, oldValue, newValue) {\n           console.log(`player ${playerIndex} took ${oldValue - newValue} damage.`);\n       }\n   }\n\n   const a = new A();\n\n   while (a.players.length > 0) {\n       for (player of a.players) {\n           player.dmg(10);\n       }\n   }"
     ],
     "lineNumber": 51,
+    "ignore": true,
     "params": [
       {
         "name": "superclass",
@@ -2026,10 +2149,10 @@
     "return": null
   },
   {
-    "__docId__": 105,
+    "__docId__": 111,
     "kind": "file",
     "name": "src/telegram.mjs",
-    "content": "import axios from 'axios';\n\nimport {log} from './log';\n\n/**\n * @access package\n */\nexport class TelegramBot {\n    constructor(key, channel, timeout=3000) {\n        this.key = key;\n        this.channel = channel;\n        this.base = 'https://api.telegram.org/bot';\n        this._axiosInst = axios.create({\n            baseURL: this.base,\n            timeout: timeout\n        });\n\n    }\n\n    async message(m) {\n        const url = `${this.base}${this.key}/sendMessage`;\n        const cfg = {\n            params: {\n                chat_id: this.channel,\n                text: m,\n                disable_notification: true\n            }\n        };\n\n        return this._axiosInst.get(url, cfg)\n            .then(response => {\n                log.info(\n                    `${url} returned ${response.statusText} `+\n                    `(${response.status})`+\n                    `${response.data}`\n                );\n                return response.data;\n            })\n            .catch(err => {\n                log.error(`${url} returned error.`);\n                if (err.response) {\n                    log.error('response:', err.response.data);\n                    log.error(err.response.status);\n                    //console.log(err.response.headers);\n                } else if (err.request) {\n                    // The request was made but no response received.\n                    log.error('No response');\n                    log.error(err.request);\n                } else {\n                    log.error('Error', err.message);\n                }\n                throw err;\n            });\n    }\n}\n",
+    "content": "import axios from 'axios';\n\nimport {log} from './log';\n\n/**\n * @access package\n */\nexport class TelegramBot {\n    constructor(key, channel, timeout=3000) {\n        this.key = key;\n        this.channel = channel;\n        this.base = 'https://api.telegram.org/bot';\n        this._axiosInst = axios.create({\n            baseURL: this.base,\n            timeout: timeout\n        });\n\n    }\n\n    async message(m) {\n        const url = `${this.base}${this.key}/sendMessage`;\n        const cfg = {\n            params: {\n                chat_id: this.channel,\n                text: m,\n                disable_notification: true\n            }\n        };\n\n        return this._axiosInst.get(url, cfg)\n            .then(response => {\n                log.debug(\n                    `${url} returned ${response.statusText} `+\n                    `(${response.status})`+\n                    `${response.data}`\n                );\n                return response.data;\n            })\n            .catch(err => {\n                log.error(`${url} returned error.`);\n                if (err.response) {\n                    log.error('response:', err.response.data);\n                    log.error(err.response.status);\n                    //console.log(err.response.headers);\n                } else if (err.request) {\n                    // The request was made but no response received.\n                    log.error('No response');\n                    log.error(err.request);\n                } else {\n                    log.error('Error', err.message);\n                }\n                throw err;\n            });\n    }\n}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/telegram.mjs",
     "access": "public",
@@ -2037,7 +2160,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 106,
+    "__docId__": 112,
     "kind": "class",
     "name": "TelegramBot",
     "memberof": "src/telegram.mjs",
@@ -2049,10 +2172,11 @@
     "importStyle": "{TelegramBot}",
     "description": "",
     "lineNumber": 8,
-    "interface": false
+    "interface": false,
+    "ignore": true
   },
   {
-    "__docId__": 107,
+    "__docId__": 113,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2066,7 +2190,7 @@
     "undocument": true
   },
   {
-    "__docId__": 108,
+    "__docId__": 114,
     "kind": "member",
     "name": "key",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2083,7 +2207,7 @@
     }
   },
   {
-    "__docId__": 109,
+    "__docId__": 115,
     "kind": "member",
     "name": "channel",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2100,7 +2224,7 @@
     }
   },
   {
-    "__docId__": 110,
+    "__docId__": 116,
     "kind": "member",
     "name": "base",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2117,7 +2241,7 @@
     }
   },
   {
-    "__docId__": 111,
+    "__docId__": 117,
     "kind": "member",
     "name": "_axiosInst",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2135,7 +2259,7 @@
     }
   },
   {
-    "__docId__": 112,
+    "__docId__": 118,
     "kind": "method",
     "name": "message",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2162,10 +2286,10 @@
     }
   },
   {
-    "__docId__": 113,
+    "__docId__": 119,
     "kind": "file",
     "name": "src/timeseries.mjs",
-    "content": "import {chartIntervalToMs} from './utils';\nimport {ObservableMixin} from './observable';\n\n// Assumes data will be added for all intervals, so we're not optimising for\n// space wrt missing data.\n\n/**\n * @access package\n */\nexport class TimeSeriesData extends ObservableMixin(Object) {\n    // Interval is the interval for data samples.\n    constructor(interval) {\n        super();\n        this.intervalStr = interval;\n        this.interval = chartIntervalToMs(interval);\n        this.firstTime = Infinity;\n        this.lastTime = 0;\n        this.data = [];\n    }\n\n    _checkAndFillTrailingData(time) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n        const gap = time - this.lastTime;\n        if (gap < this.interval) return;\n        const nMissing = Math.ceil(gap / this.interval);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this.data = this.data.concat(\n            new Array(nMissing).fill(this.data[this.data.length - 1])\n        );\n        this.lastTime = time;\n    }\n\n    _checkAndFillLeadingData(time, data) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n        const gap = this.firstTime - time;\n        if (gap < this.interval) return;\n        const nMissing = Math.ceil(gap / this.interval);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this.data = new Array(nMissing).fill(data).concat(this.data);\n        this.firstTime = time;\n    }\n\n    addData(time, data) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n\n        if (this.data.length === 0) {\n            this.data.push(data);\n            this.lastTime = this.firstTime = time;\n        } else if (time > this.lastTime) {\n            // Comes after last sample\n            this._checkAndFillTrailingData(time - this.interval);\n            this.data.push(data);\n            this.lastTime = time;\n            this.notifyObservers('extended', data);\n        } else if (time < this.firstTime) {\n            // Comes before first sample\n            this._checkAndFillLeadingData(time + this.interval, data);\n            this.data.unshift(data);\n            this.firstTime = time;\n        } else {\n            // If it falls exactly on the interval, overwrites an existing\n            // sample, otherwise an error.\n            const replaceIndex = (time - this.firstTime) / this.interval;\n            this.data[replaceIndex] = data;\n            this.notifyObservers('replaceRecent', data);\n        }\n    }\n\n    // Get the n most recent samples. By default, this includes the most recent\n    // interval which will likely not be closed, this behaviour can be changed\n    // by passing includeOpen=false.\n    // if n > the number of samples available, all available samples will\n    // be returned.\n    getRecent(n, currentTime, includeOpen=true) {\n        if (n < 1) throw new Error('n < 1');\n        if (this.data.length < 1) return [];\n\n        this._checkAndFillTrailingData(currentTime);\n        const lastSampleOpen = currentTime - this.lastTime < this.interval;\n\n        if (includeOpen || !lastSampleOpen) return this.data.slice(-n);\n\n        const offset = this.data.length - 1;\n        return this.data.slice(Math.max(0, offset - n), offset);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getRange(startTime, endTime) {\n    }\n}\n",
+    "content": "import {chartIntervalToMs} from './utils';\nimport {ObservableMixin} from './observable';\n\n// Assumes data will be added for all intervals, so we're not optimising for\n// space wrt missing data.\n\n/**\n * Data store for time series data - i.e. data that is associated with\n * fixed intervals of time and has no gaps.\n * @package\n */\nexport class TimeSeriesData extends ObservableMixin(Object) {\n    /**\n     * @param {string} interval     An string representing a time interval.\n     *                              For accepted values, see {@link chartIntervalToMs}.\n     */\n    constructor(interval) {\n        super();\n        /** Time interval in string form. */\n        this.intervalStr = interval;\n        /** Time interval in milliseconds. */\n        this.interval = chartIntervalToMs(interval);\n        this._firstTime = Infinity;\n        this._lastTime = 0;\n        this._data = [];\n    }\n\n    /**\n     * If a time is given that is after the last data sample, then\n     * fill the data up to time.\n     * @param {number} time     Time in milliseconds.\n     */\n    _checkAndFillTrailingData(time) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n        const gap = time - this._lastTime;\n        if (gap < this.interval) return;\n        const nMissing = Math.ceil(gap / this.interval);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = this._data.concat(\n            new Array(nMissing).fill(this._data[this._data.length - 1])\n        );\n        this._lastTime = time;\n    }\n\n    /**\n     * If a time is given that is prior to the first data sample, then\n     * fill the data from time to the first existing sample.\n     * @param {number} time     Time in milliseconds.\n     */\n    _checkAndFillLeadingData(time, data) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n        const gap = this._firstTime - time;\n        if (gap < this.interval) return;\n        const nMissing = Math.ceil(gap / this.interval);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = new Array(nMissing).fill(data).concat(this._data);\n        this._firstTime = time;\n    }\n\n    /**\n     * Add data to the series.\n     * If data is provided for a time that has existing data, then that data\n     * is overwritten.\n     * If data is provided more than one interval before or after existing data\n     * then the empty samples are padded with the preceeding data value.\n     * @param {number} time     The time in milliseconds.\n     * @param          data     The data value to store at this time.\n     */\n    addData(time, data) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n\n        if (this._data.length === 0) {\n            this._data.push(data);\n            this._lastTime = this._firstTime = time;\n        } else if (time > this._lastTime) {\n            // Comes after last sample\n            this._checkAndFillTrailingData(time - this.interval);\n            this._data.push(data);\n            this._lastTime = time;\n            this.notifyObservers('extended', data, time);\n        } else if (time < this._firstTime) {\n            // Comes before first sample\n            this._checkAndFillLeadingData(time + this.interval, data);\n            this._data.unshift(data);\n            this._firstTime = time;\n        } else {\n            // If it falls exactly on the interval, overwrites an existing\n            // sample, otherwise an error.\n            const replaceIndex = (time - this._firstTime) / this.interval;\n            this._data[replaceIndex] = data;\n            this.notifyObservers('replaceRecent', data, time);\n        }\n    }\n\n    /**\n     * Get the most recent samples. By default, this includes the most recent\n     * interval which will likely not be closed.\n     * If the current time is past the last data sample, then the value of the\n     * last data sample will be used to fill the data samples up to the current time.\n     * @param {number}      n           The number of samples to return.\n     *                                  If n > the number of samples available, all\n     *                                  available samples will be returned.\n     * @param {currentTime} currentTime The current time in milliseconds. This\n     *                                  is required to determine if the latest\n     *                                  sample is closed and to pad data\n     *                                  if the current time is after the last\n     *                                  data sample.\n     * @param {boolean}     [includeOpen=true]\n     *                                  Whether to include open or only closed\n     *                                  samples. A sample is closed once the full\n     *                                  time for the interval has elapsed.\n     *\n     * @return {Array<number|string|boolean|object>}\n     *                                  An array containing the requested samples,\n     *                                  or an empty array if there is no data\n     *                                  stored.\n     * @throws {Error}  If n < 1.\n     */\n    getRecent(n, currentTime, includeOpen=true) {\n        if (n < 1) throw new Error('n < 1');\n        if (this._data.length < 1) return [];\n\n        this._checkAndFillTrailingData(currentTime);\n        const lastSampleOpen = currentTime - this._lastTime < this.interval;\n\n        if (includeOpen || !lastSampleOpen) return this._data.slice(-n);\n\n        const offset = this._data.length - 1;\n        return this._data.slice(Math.max(0, offset - n), offset);\n    }\n\n    /**\n     * Get a value from the time series for a specific time.\n     * @param {number} time     The time in the series from where data will\n     *                          be retrieved.\n     * @returns        The data at that time, or undefined if no data exists\n     *                 at that time.\n     */\n    getAt(time) {\n        time -= (time % this.interval);\n\n        if (time < this._firstTime || time > this._lastTime) {\n            return undefined;\n        }\n\n        const index = (time - this._firstTime) / this.interval;\n        return this._data[index];\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getRange(startTime, endTime) {\n    }\n}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/timeseries.mjs",
     "access": "public",
@@ -2173,7 +2297,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 114,
+    "__docId__": 120,
     "kind": "class",
     "name": "TimeSeriesData",
     "memberof": "src/timeseries.mjs",
@@ -2183,16 +2307,17 @@
     "export": true,
     "importPath": "cryptotrader9000/src/timeseries.mjs",
     "importStyle": "{TimeSeriesData}",
-    "description": "",
-    "lineNumber": 10,
+    "description": "Data store for time series data - i.e. data that is associated with\nfixed intervals of time and has no gaps.",
+    "lineNumber": 12,
     "interface": false,
     "expressionExtends": "ObservableMixin(Object)",
     "extends": [
       "Object"
-    ]
+    ],
+    "ignore": true
   },
   {
-    "__docId__": 115,
+    "__docId__": 121,
     "kind": "file",
     "name": "src/utils.mjs",
     "content": "/* eslint-disable no-fallthrough */\n\n/**\n * @access package\n */\nexport function intervalToMs(intervalStr, multiplier=1) {\n    switch (intervalStr) {\n        case 'M':\n            throw new Error(\"Months aren't supported because they are too variable. Sorry.\");\n        case 'w':\n            multiplier *= 7;\n        case 'd':\n        case 'DAY':\n            multiplier *= 24;\n        case 'h':\n            multiplier *= 60;\n        case 'm':\n        case 'MINUTE':\n            multiplier *= 60;\n        case 'SECOND': return 1000 * multiplier;\n        default: throw new Error('bad intervalStr');\n    }\n}\n\n/**\n * A chart interval string is a number followed by a time period.\n * Where time period may be any of:\n * m -> minutes; h -> hours; d -> days; w -> weeks; M -> months\n * @access package\n */\nexport function chartIntervalToMs(intervalStr) {\n    const result = intervalStr.match(/^([\\d]+)([mhdwM])$/);\n    if (result === null) {\n        throw new Error(`${intervalStr} is not a valid intervalStr.`);\n    }\n    const num = result[1], period = result[2];\n    const ms = intervalToMs(period, num);\n    return ms;\n}\n\n/**\n * @typedef {any} Any   Any type.\n * @access package\n */\n\n/**\n * @typedef {any} ComparisonType    Any type, but all parameters of this type\n *                                  must be comparable.\n * @access package\n */\n\n/**\n * Given two arrays, with values that can be compared, determine which\n * values 'crossed' from the first to the second.\n * Also determine if the fast and slow (mininum value and maximum value) crossed.\n * For example, for a = [1,2,3,4], and b = [1,3,2,4]. Values 2 and 3 are considered\n * to have crossed as they swapped position.\n * @access package\n *\n * @param {Array<Any>} a      The first array of values.\n * @param {Array<Any>} b      The first array of values.\n * @param {ComparisonType}    fast   The 'fast' value.\n * @param {ComparisonType}    slow   The 'slow' value.\n * @param {function(a:Any): ComparisonType} valueFn   A function for retrieving the\n *                                      comparison value from 'a' and 'b',\n *                                      if they are compound objects and the comparison\n *                                      value is a property.\n *\n * @returns {{fastSlowCross: bool, crossed: Array<Any>}}    An object with\n * properties 'fastSlowCross', which indicates if fast and slow crossed, and\n * the array 'crossed' which contains any elements that crossed, or is empty\n * if no cross occurred.\n *\n * @example\n * const a = [1,2,3,4]\n * const b = [1,4,3,2]\n * const cross = findCross(a, b, 1, 4);\n * console.log(cross); // {fastSlowCross: false, crossed: [4,3,2]\n */\nexport function findCross(a, b, fast, slow, valueFn=(a)=>a) {\n    let firstCross = null;\n    let afterCross = null;\n    // Assume min and max cross unless we see one of them outside of the\n    // cross zone.\n    let fastSlowCross = true;\n\n    // Two separate loops seems to be ever so slightly faster.\n    for (let r = a.length-1; afterCross === null && r > 0; r--) {\n        if (valueFn(a[r]) != valueFn(b[r])) afterCross = r+1;\n        else if (valueFn(a[r]) == fast || valueFn(a[r]) == slow) fastSlowCross = false;\n    }\n\n    if (afterCross === null) return {fastSlowCross:false, crossed:[]};\n\n    for (let l = 0; firstCross === null && l < afterCross; l++) {\n        if (valueFn(a[l]) != valueFn(b[l])) firstCross = l;\n        else if (valueFn(a[l]) == fast || valueFn(a[l]) == slow) fastSlowCross = false;\n    }\n\n    return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};\n}\n\n\n",
@@ -2203,7 +2328,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 116,
+    "__docId__": 122,
     "kind": "function",
     "name": "intervalToMs",
     "memberof": "src/utils.mjs",
@@ -2217,6 +2342,7 @@
     "importStyle": "{intervalToMs}",
     "description": "",
     "lineNumber": 6,
+    "ignore": true,
     "params": [
       {
         "name": "intervalStr",
@@ -2241,7 +2367,7 @@
     }
   },
   {
-    "__docId__": 117,
+    "__docId__": 123,
     "kind": "function",
     "name": "chartIntervalToMs",
     "memberof": "src/utils.mjs",
@@ -2255,6 +2381,7 @@
     "importStyle": "{chartIntervalToMs}",
     "description": "A chart interval string is a number followed by a time period.\nWhere time period may be any of:\nm -> minutes; h -> hours; d -> days; w -> weeks; M -> months",
     "lineNumber": 31,
+    "ignore": true,
     "params": [
       {
         "name": "intervalStr",
@@ -2270,7 +2397,7 @@
     }
   },
   {
-    "__docId__": 118,
+    "__docId__": 124,
     "kind": "typedef",
     "name": "Any",
     "memberof": "src/utils.mjs",
@@ -2284,10 +2411,11 @@
       ],
       "optional": false,
       "name": "Any"
-    }
+    },
+    "ignore": true
   },
   {
-    "__docId__": 119,
+    "__docId__": 125,
     "kind": "typedef",
     "name": "ComparisonType",
     "memberof": "src/utils.mjs",
@@ -2301,10 +2429,11 @@
       ],
       "optional": false,
       "name": "ComparisonType"
-    }
+    },
+    "ignore": true
   },
   {
-    "__docId__": 120,
+    "__docId__": 126,
     "kind": "function",
     "name": "findCross",
     "memberof": "src/utils.mjs",
@@ -2386,11 +2515,12 @@
       ],
       "spread": false,
       "description": "An object with\nproperties 'fastSlowCross', which indicates if fast and slow crossed, and\nthe array 'crossed' which contains any elements that crossed, or is empty\nif no cross occurred."
-    }
+    },
+    "ignore": true
   },
   {
     "kind": "index",
-    "content": "# cryptotrader9000\nA very basic rule based trading bot for Binance. For fun, not profit.\n\n# Setting up and running the test bot\n\n1. `git clone https://github.com/nikosandronikos/cryptotrader9000.git`\n\n2. Install dependencies with\n```npm install``` or ```npm install --production```\n\n3. Set environment variables (see [Environment Variables](#Environment Variables))\n\n3. Run the test bot with\n```npm start```\n\n**Note** *, if running nodejs directly rather than via the '`npm start`'\ncommand, the '`--experimental-modules`' flag is required to enable ES6\nmodule support in NodeJS.*\n\n### Environment Variables\nThe following environment variables are required. They may be configured in\na '.env' file or within the OS environment:\n- BINANCEACCOUNT_NAME; A human readable name for the account\n- BINANCEACCOUNT_KEY; The account key from Binance\n- BINANCEACCOUNT_SECRET; The account key secret from Binance\n- TELEGRAM_KEY; (optional) A key for a telegram bot\n- TELEGRAM_CHANNEL; (optional) The telegram channel to send messages to\n\n# Using the library\n*There is currently no mechanism to simply import this as a library into your\nown packages. In the future this module will be available via NPM.*\n\nThe initial entry point is the [BinanceAccess](https://nikosandronikos.github.io/cryptotrader9000/class/src/binance.mjs~BinanceAccess.html) class.\n\nFull documentation is available at:\nhttps://nikosandronikos.github.io/cryptotrader9000/\n\n# Tests\n[![Build Status](https://travis-ci.org/nikosandronikos/cryptotrader9000.svg?branch=master)](https://travis-ci.org/nikosandronikos/cryptotrader9000)\n\nRun the tests with\n```npm test```\n\n",
+    "content": "# cryptotrader9000\nA very basic rule based trading bot for Binance. For fun, not profit.\n\n# Setting up and running the test bot\n\n1. `git clone https://github.com/nikosandronikos/cryptotrader9000.git`\n\n2. Install dependencies with\n```npm install``` or ```npm install --production```\n\n3. Set environment variables (see [Environment Variables](#Environment Variables))\n\n3. Run the test bot with\n```npm start```\n\n**Note** *, if running nodejs directly rather than via the '`npm start`'\ncommand, the '`--experimental-modules`' flag is required to enable ES6\nmodule support in NodeJS.*\n\n### Environment Variables\nThe following environment variables are required. They may be configured in\na '.env' file or within the OS environment:\n- BINANCEACCOUNT_NAME; A human readable name for the account\n- BINANCEACCOUNT_KEY; The account key from Binance\n- BINANCEACCOUNT_SECRET; The account key secret from Binance\n- TELEGRAM_KEY; (optional) A key for a telegram bot\n- TELEGRAM_CHANNEL; (optional) The telegram channel to send messages to\n\n# Using the library\n*There is currently no mechanism to simply import this as a library into your\nown packages. In the future this module will be available via NPM.*\n\nThe initial entry point is the [BinanceAccess](https://nikosandronikos.github.io/cryptotrader9000/class/src/binance.mjs~BinanceAccess.html) class.\n\nFull documentation is available at:\nhttps://nikosandronikos.github.io/cryptotrader9000/\n\nNote that esdoc doesn't like the method used to mixin ObservableMixin to other\nclasses. This results in blank documentation for any class using ObservableMixin.\nSorry! You'll just have to look at the source for now.\n\n# Tests\n[![Build Status](https://travis-ci.org/nikosandronikos/cryptotrader9000.svg?branch=master)](https://travis-ci.org/nikosandronikos/cryptotrader9000)\n\nRun the tests with\n```npm test```\n\n",
     "longname": "/home/nikos/Documents/code/cryptotrader9000/README.md",
     "name": "./README.md",
     "static": true,

@@ -39,17 +39,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
@@ -57,7 +47,9 @@
 <div class="content" data-ice="content"><h1 data-ice="title">src/main.mjs</h1>
 <pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import {BinanceAccess} from &apos;./binance.mjs&apos;;
 import {MultiEMAIndicator} from &apos;./indicator.mjs&apos;;
-import {log} from &apos;./log&apos;;
+import {log, LogLevelType} from &apos;./log&apos;;
+
+import Big from &apos;big.js&apos;;
 
 (async function main() {
     log.info(&apos;Initialising exchange access&apos;);
@@ -65,7 +57,7 @@ import {log} from &apos;./log&apos;;
     await binance.init();
     log.info(&apos;  Binance access initialised.&apos;);
 
-    log.notify(&apos;Bot online.&apos;);
+    log.level = LogLevelType.info;
 
     await binance.loadAccount(
         process.env.BINANCEACCOUNT_NAME,
@@ -74,16 +66,42 @@ import {log} from &apos;./log&apos;;
     );
 
     const nulsbtc = binance.getCoinPair(&apos;NULS&apos;,&apos;BTC&apos;);
-    // eslint-disable-next-line no-unused-vars
-    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, &apos;1m&apos;, [55, 21, 13, 8]);
+    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, &apos;5m&apos;, [21, 13, 8]);
 
-    multiEma.addObserver(&apos;fastSlowCross&apos;, function() {log.debug(&apos;fastSlowCross&apos;)});
-    multiEma.addObserver(&apos;cross&apos;, function() {log.debug(&apos;Cross&apos;)});
-    multiEma.addObserver(&apos;update&apos;, function() {log.debug(&apos;Got MultiEMA update&apos;)});
+    log.notify(`Bot online. Tracking ${multiEma.coinPair.symbol} ${multiEma.interval}.`);
 
-    //const eosbtc = binance.getCoinPair(&apos;EOS&apos;,&apos;BTC&apos;);
-    // eslint-disable-next-line no-unused-vars
-    //const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, &apos;15m&apos;, [55, 21, 13, 8]);
+    let buyAt = null;
+    let cumulative = new Big(0);
+
+    // Possibly the world&apos;s simplest trading strategy.
+    // Buy when The fast and slow EMA cross and sell when they cross again.
+    multiEma.addObserver(&apos;fastSlowCross&apos;, (crossed, time, price) =&gt; {
+        const message = [];
+        const signal =
+            crossed.findIndex((e) =&gt; e.nPeriods == multiEma.slow)
+            &lt;
+            crossed.findIndex((e) =&gt; e.nPeriods == multiEma.fast)
+                ? &apos;sell&apos; : &apos;buy&apos;;
+        message.push(
+            multiEma.coinPair.symbol, multiEma.interval,
+            &apos;Fast and slow EMA cross.&apos;,
+            `Signal: ${signal}.`,
+            `Price: ${price.toString()}.`
+        );
+        if (signal == &apos;buy&apos;) {
+            buyAt = price;
+        } else if (buyAt != null) {
+            const diff = price.sub(buyAt);
+            cumulative = cumulative.plus(diff);
+            message.push(
+                &apos;Sold. Buy/sell difference: &apos;, diff.toString(),
+                &apos;. Cumulative gain:&apos;, cumulative.toString()
+            );
+        }
+        log.notify(...message);
+    });
+    multiEma.addObserver(&apos;cross&apos;, function() {log.debug(&apos;Cross&apos;);});
+    multiEma.addObserver(&apos;update&apos;, function() {log.debug(&apos;Got MultiEMA update&apos;);});
 })();
 </code></pre>
 

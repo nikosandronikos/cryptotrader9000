@@ -60,58 +60,10 @@ window.esdocSearchIndex = [
     "class"
   ],
   [
-    "cryptotrader9000/src/log.mjs~log",
-    "class/src/log.mjs~Log.html",
-    "<span>Log</span> <span class=\"search-result-import-path\">cryptotrader9000/src/log.mjs</span>",
-    "class"
-  ],
-  [
     "cryptotrader9000/src/indicator.mjs~multiemaindicator",
     "class/src/indicator.mjs~MultiEMAIndicator.html",
     "<span>MultiEMAIndicator</span> <span class=\"search-result-import-path\">cryptotrader9000/src/indicator.mjs</span>",
     "class"
-  ],
-  [
-    "cryptotrader9000/src/observable.mjs~observablemixin",
-    "function/index.html#static-function-ObservableMixin",
-    "<span>ObservableMixin</span> <span class=\"search-result-import-path\">cryptotrader9000/src/observable.mjs</span>",
-    "function"
-  ],
-  [
-    "cryptotrader9000/src/telegram.mjs~telegrambot",
-    "class/src/telegram.mjs~TelegramBot.html",
-    "<span>TelegramBot</span> <span class=\"search-result-import-path\">cryptotrader9000/src/telegram.mjs</span>",
-    "class"
-  ],
-  [
-    "cryptotrader9000/src/timeseries.mjs~timeseriesdata",
-    "class/src/timeseries.mjs~TimeSeriesData.html",
-    "<span>TimeSeriesData</span> <span class=\"search-result-import-path\">cryptotrader9000/src/timeseries.mjs</span>",
-    "class"
-  ],
-  [
-    "cryptotrader9000/src/utils.mjs~chartintervaltoms",
-    "function/index.html#static-function-chartIntervalToMs",
-    "<span>chartIntervalToMs</span> <span class=\"search-result-import-path\">cryptotrader9000/src/utils.mjs</span>",
-    "function"
-  ],
-  [
-    "cryptotrader9000/src/utils.mjs~findcross",
-    "function/index.html#static-function-findCross",
-    "<span>findCross</span> <span class=\"search-result-import-path\">cryptotrader9000/src/utils.mjs</span>",
-    "function"
-  ],
-  [
-    "cryptotrader9000/src/utils.mjs~intervaltoms",
-    "function/index.html#static-function-intervalToMs",
-    "<span>intervalToMs</span> <span class=\"search-result-import-path\">cryptotrader9000/src/utils.mjs</span>",
-    "function"
-  ],
-  [
-    "cryptotrader9000/src/log.mjs~log",
-    "variable/index.html#static-variable-log",
-    "<span>log</span> <span class=\"search-result-import-path\">cryptotrader9000/src/log.mjs</span>",
-    "variable"
   ],
   [
     "src/account.mjs",
@@ -318,6 +270,12 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/indicator.mjs~emaindicator#intervalms",
+    "class/src/indicator.mjs~EMAIndicator.html#instance-member-intervalMs",
+    "src/indicator.mjs~EMAIndicator#intervalMs",
+    "member"
+  ],
+  [
     "src/indicator.mjs~emaindicator#nperiods",
     "class/src/indicator.mjs~EMAIndicator.html#instance-member-nPeriods",
     "src/indicator.mjs~EMAIndicator#nPeriods",
@@ -348,6 +306,12 @@ window.esdocSearchIndex = [
     "method"
   ],
   [
+    "src/indicator.mjs~multiemaindicator#currentprice",
+    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-currentPrice",
+    "src/indicator.mjs~MultiEMAIndicator#currentPrice",
+    "member"
+  ],
+  [
     "src/indicator.mjs~multiemaindicator#currenttime",
     "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-currentTime",
     "src/indicator.mjs~MultiEMAIndicator#currentTime",
@@ -363,6 +327,12 @@ window.esdocSearchIndex = [
     "src/indicator.mjs~multiemaindicator#emas",
     "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-emas",
     "src/indicator.mjs~MultiEMAIndicator#emas",
+    "member"
+  ],
+  [
+    "src/indicator.mjs~multiemaindicator#fast",
+    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-fast",
+    "src/indicator.mjs~MultiEMAIndicator#fast",
     "member"
   ],
   [
@@ -384,12 +354,6 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
-    "src/indicator.mjs~multiemaindicator#nfullupdates",
-    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-nFullUpdates",
-    "src/indicator.mjs~MultiEMAIndicator#nFullUpdates",
-    "member"
-  ],
-  [
     "src/indicator.mjs~multiemaindicator#nupdates",
     "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-nUpdates",
     "src/indicator.mjs~MultiEMAIndicator#nUpdates",
@@ -399,6 +363,12 @@ window.esdocSearchIndex = [
     "src/indicator.mjs~multiemaindicator#orderedemas",
     "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-orderedEmas",
     "src/indicator.mjs~MultiEMAIndicator#orderedEmas",
+    "member"
+  ],
+  [
+    "src/indicator.mjs~multiemaindicator#slow",
+    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-slow",
+    "src/indicator.mjs~MultiEMAIndicator#slow",
     "member"
   ],
   [
@@ -412,42 +382,6 @@ window.esdocSearchIndex = [
     "file/src/log.mjs.html",
     "src/log.mjs",
     "file"
-  ],
-  [
-    "src/log.mjs~log#constructor",
-    "class/src/log.mjs~Log.html#instance-constructor-constructor",
-    "src/log.mjs~Log#constructor",
-    "method"
-  ],
-  [
-    "src/log.mjs~log#debug",
-    "class/src/log.mjs~Log.html#instance-method-debug",
-    "src/log.mjs~Log#debug",
-    "method"
-  ],
-  [
-    "src/log.mjs~log#error",
-    "class/src/log.mjs~Log.html#instance-method-error",
-    "src/log.mjs~Log#error",
-    "method"
-  ],
-  [
-    "src/log.mjs~log#info",
-    "class/src/log.mjs~Log.html#instance-method-info",
-    "src/log.mjs~Log#info",
-    "method"
-  ],
-  [
-    "src/log.mjs~log#notify",
-    "class/src/log.mjs~Log.html#instance-method-notify",
-    "src/log.mjs~Log#notify",
-    "method"
-  ],
-  [
-    "src/log.mjs~log#telegram",
-    "class/src/log.mjs~Log.html#instance-member-telegram",
-    "src/log.mjs~Log#telegram",
-    "member"
   ],
   [
     "src/main.mjs",
@@ -468,36 +402,6 @@ window.esdocSearchIndex = [
     "file"
   ],
   [
-    "src/telegram.mjs~telegrambot#base",
-    "class/src/telegram.mjs~TelegramBot.html#instance-member-base",
-    "src/telegram.mjs~TelegramBot#base",
-    "member"
-  ],
-  [
-    "src/telegram.mjs~telegrambot#channel",
-    "class/src/telegram.mjs~TelegramBot.html#instance-member-channel",
-    "src/telegram.mjs~TelegramBot#channel",
-    "member"
-  ],
-  [
-    "src/telegram.mjs~telegrambot#constructor",
-    "class/src/telegram.mjs~TelegramBot.html#instance-constructor-constructor",
-    "src/telegram.mjs~TelegramBot#constructor",
-    "method"
-  ],
-  [
-    "src/telegram.mjs~telegrambot#key",
-    "class/src/telegram.mjs~TelegramBot.html#instance-member-key",
-    "src/telegram.mjs~TelegramBot#key",
-    "member"
-  ],
-  [
-    "src/telegram.mjs~telegrambot#message",
-    "class/src/telegram.mjs~TelegramBot.html#instance-method-message",
-    "src/telegram.mjs~TelegramBot#message",
-    "method"
-  ],
-  [
     "src/timeseries.mjs",
     "file/src/timeseries.mjs.html",
     "src/timeseries.mjs",
@@ -508,17 +412,5 @@ window.esdocSearchIndex = [
     "file/src/utils.mjs.html",
     "src/utils.mjs",
     "file"
-  ],
-  [
-    "src/utils.mjs~any",
-    "typedef/index.html#static-typedef-Any",
-    "src/utils.mjs~Any",
-    "typedef"
-  ],
-  [
-    "src/utils.mjs~comparisontype",
-    "typedef/index.html#static-typedef-ComparisonType",
-    "src/utils.mjs~ComparisonType",
-    "typedef"
   ]
 ]

@@ -39,17 +39,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
@@ -60,10 +50,33 @@
 const Console = console;
 
 /**
- * @access package
+ * Options for differing verbosity of log output.
+ * @package
+ */
+export const LogLevelType = {
+    none:   0,
+    error:  1,
+    notify: 2,
+    info:   4,
+    debug:  8
+};
+
+/**
+ * @protected
  */
 class Log {
+    /**
+     * Create a logger.
+     * If TELEGRAM_KEY and TELEGRAM_CHANNEL environment variables are set,
+     * then a Telegram bot will be instantiated for output for some log
+     * verbosity levels.
+     */
     constructor() {
+        /**
+         * Set to a value from {@link LogLevelType} to set the verbosity of output.
+         */
+        this.level = LogLevelType.debug;
+
         if (process.env.TELEGRAM_KEY !== undefined
             &amp;&amp;
             process.env.TELEGRAM_CHANNEL !== undefined
@@ -76,25 +89,65 @@ class Log {
         }
     }
 
+    /**
+     * Output information about an error.
+     * Will write to the Telegram bot if configured.
+     * @param {...(string|number|object|bool)} args
+     *                                  Any number of objects to output. The
+     *                                  string represented will be concateanted
+     *                                  with a space character.
+     */
     error(...args) {
+        if (this.level &lt; LogLevelType.error) return;
         if (this.telegram) this.telegram.message(args.join(&apos; &apos;));
         Console.log(...args);
     }
 
+    /**
+     * Output notification information. Notifications are considered to be
+     * of higher importance than informative output.
+     * Will write to the Telegram bot if configured.
+     * @param {...(string|number|object|bool)} args
+     *                                  Any number of objects to output. The
+     *                                  string represented will be concateanted
+     *                                  with a space character.
+     */
     notify(...args) {
+        if (this.level &lt; LogLevelType.notify) return;
         if (this.telegram) this.telegram.message(args.join(&apos; &apos;));
         Console.log(...args);
     }
 
+    /**
+     * Output an informative message. Considered to be less important than
+     * notifications.
+     * @param {...(string|number|object|bool)} args
+     *                                  Any number of objects to output. The
+     *                                  string represented will be concateanted
+     *                                  with a space character.
+     */
     info(...args) {
+        if (this.level &lt; LogLevelType.info) return;
         Console.log(...args);
     }
 
+    /**
+     * Output debug information.
+     * @param {...(string|number|object|bool)} args
+     *                                  Any number of objects to output. The
+     *                                  string represented will be concateanted
+     *                                  with a space character.
+     */
     debug(...args) {
+        if (this.level &lt; LogLevelType.debug) return;
         Console.log(...args);
     }
 }
 
+/**
+ * An instance of the Log for use within the package.
+ * @package
+ */
 export const log = new Log();
 
 

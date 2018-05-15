@@ -1,7 +1,7 @@
 {
-  "coverage": "32.67%",
-  "expectCount": 101,
-  "actualCount": 33,
+  "coverage": "38.67%",
+  "expectCount": 106,
+  "actualCount": 41,
   "files": {
     "src/account.mjs": {
       "expectCount": 8,
@@ -58,7 +58,7 @@
       ]
     },
     "src/indicator.mjs": {
-      "expectCount": 24,
+      "expectCount": 27,
       "actualCount": 0,
       "undocumentLines": [
         12,
@@ -66,12 +66,13 @@
         25,
         27,
         28,
-        30,
+        29,
         31,
-        34,
-        36,
-        63,
-        70,
+        32,
+        35,
+        37,
+        64,
+        71,
         88,
         89,
         91,
@@ -82,23 +83,19 @@
         97,
         98,
         99,
-        102,
-        129,
-        193
+        100,
+        101,
+        104,
+        149,
+        206
       ]
     },
     "src/log.mjs": {
-      "expectCount": 9,
-      "actualCount": 1,
+      "expectCount": 11,
+      "actualCount": 9,
       "undocumentLines": [
         3,
-        41,
-        9,
-        14,
-        22,
-        27,
-        32,
-        36
+        37
       ]
     },
     "src/observable.mjs": {

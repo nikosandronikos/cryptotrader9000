@@ -39,17 +39,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/log.mjs~Log.html">Log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/telegram.mjs~TelegramBot.html">TelegramBot</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/timeseries.mjs~TimeSeriesData.html">TimeSeriesData</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-ObservableMixin">ObservableMixin</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-chartIntervalToMs">chartIntervalToMs</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-findCross">findCross</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-intervalToMs">intervalToMs</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-log">log</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-Any">Any</a></span></span></li>
-<li data-ice="doc"><span data-ice="kind" class="kind-typedef">T</span><span data-ice="name"><span><a href="typedef/index.html#static-typedef-ComparisonType">ComparisonType</a></span></span></li>
 </ul>
 </div>
 </nav>
@@ -62,83 +52,146 @@ import {ObservableMixin} from &apos;./observable&apos;;
 // space wrt missing data.
 
 /**
- * @access package
+ * Data store for time series data - i.e. data that is associated with
+ * fixed intervals of time and has no gaps.
+ * @package
  */
 export class TimeSeriesData extends ObservableMixin(Object) {
-    // Interval is the interval for data samples.
+    /**
+     * @param {string} interval     An string representing a time interval.
+     *                              For accepted values, see {@link chartIntervalToMs}.
+     */
     constructor(interval) {
         super();
+        /** Time interval in string form. */
         this.intervalStr = interval;
+        /** Time interval in milliseconds. */
         this.interval = chartIntervalToMs(interval);
-        this.firstTime = Infinity;
-        this.lastTime = 0;
-        this.data = [];
+        this._firstTime = Infinity;
+        this._lastTime = 0;
+        this._data = [];
     }
 
+    /**
+     * If a time is given that is after the last data sample, then
+     * fill the data up to time.
+     * @param {number} time     Time in milliseconds.
+     */
     _checkAndFillTrailingData(time) {
         if (time % this.interval !== 0) time -= (time % this.interval);
-        const gap = time - this.lastTime;
+        const gap = time - this._lastTime;
         if (gap &lt; this.interval) return;
         const nMissing = Math.ceil(gap / this.interval);
         //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
-        this.data = this.data.concat(
-            new Array(nMissing).fill(this.data[this.data.length - 1])
+        this._data = this._data.concat(
+            new Array(nMissing).fill(this._data[this._data.length - 1])
         );
-        this.lastTime = time;
+        this._lastTime = time;
     }
 
+    /**
+     * If a time is given that is prior to the first data sample, then
+     * fill the data from time to the first existing sample.
+     * @param {number} time     Time in milliseconds.
+     */
     _checkAndFillLeadingData(time, data) {
         if (time % this.interval !== 0) time -= (time % this.interval);
-        const gap = this.firstTime - time;
+        const gap = this._firstTime - time;
         if (gap &lt; this.interval) return;
         const nMissing = Math.ceil(gap / this.interval);
         //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
-        this.data = new Array(nMissing).fill(data).concat(this.data);
-        this.firstTime = time;
+        this._data = new Array(nMissing).fill(data).concat(this._data);
+        this._firstTime = time;
     }
 
+    /**
+     * Add data to the series.
+     * If data is provided for a time that has existing data, then that data
+     * is overwritten.
+     * If data is provided more than one interval before or after existing data
+     * then the empty samples are padded with the preceeding data value.
+     * @param {number} time     The time in milliseconds.
+     * @param          data     The data value to store at this time.
+     */
     addData(time, data) {
         if (time % this.interval !== 0) time -= (time % this.interval);
 
-        if (this.data.length === 0) {
-            this.data.push(data);
-            this.lastTime = this.firstTime = time;
-        } else if (time &gt; this.lastTime) {
+        if (this._data.length === 0) {
+            this._data.push(data);
+            this._lastTime = this._firstTime = time;
+        } else if (time &gt; this._lastTime) {
             // Comes after last sample
             this._checkAndFillTrailingData(time - this.interval);
-            this.data.push(data);
-            this.lastTime = time;
-            this.notifyObservers(&apos;extended&apos;, data);
-        } else if (time &lt; this.firstTime) {
+            this._data.push(data);
+            this._lastTime = time;
+            this.notifyObservers(&apos;extended&apos;, data, time);
+        } else if (time &lt; this._firstTime) {
             // Comes before first sample
             this._checkAndFillLeadingData(time + this.interval, data);
-            this.data.unshift(data);
-            this.firstTime = time;
+            this._data.unshift(data);
+            this._firstTime = time;
         } else {
             // If it falls exactly on the interval, overwrites an existing
             // sample, otherwise an error.
-            const replaceIndex = (time - this.firstTime) / this.interval;
-            this.data[replaceIndex] = data;
-            this.notifyObservers(&apos;replaceRecent&apos;, data);
+            const replaceIndex = (time - this._firstTime) / this.interval;
+            this._data[replaceIndex] = data;
+            this.notifyObservers(&apos;replaceRecent&apos;, data, time);
         }
     }
 
-    // Get the n most recent samples. By default, this includes the most recent
-    // interval which will likely not be closed, this behaviour can be changed
-    // by passing includeOpen=false.
-    // if n &gt; the number of samples available, all available samples will
-    // be returned.
+    /**
+     * Get the most recent samples. By default, this includes the most recent
+     * interval which will likely not be closed.
+     * If the current time is past the last data sample, then the value of the
+     * last data sample will be used to fill the data samples up to the current time.
+     * @param {number}      n           The number of samples to return.
+     *                                  If n &gt; the number of samples available, all
+     *                                  available samples will be returned.
+     * @param {currentTime} currentTime The current time in milliseconds. This
+     *                                  is required to determine if the latest
+     *                                  sample is closed and to pad data
+     *                                  if the current time is after the last
+     *                                  data sample.
+     * @param {boolean}     [includeOpen=true]
+     *                                  Whether to include open or only closed
+     *                                  samples. A sample is closed once the full
+     *                                  time for the interval has elapsed.
+     *
+     * @return {Array&lt;number|string|boolean|object&gt;}
+     *                                  An array containing the requested samples,
+     *                                  or an empty array if there is no data
+     *                                  stored.
+     * @throws {Error}  If n &lt; 1.
+     */
     getRecent(n, currentTime, includeOpen=true) {
         if (n &lt; 1) throw new Error(&apos;n &lt; 1&apos;);
-        if (this.data.length &lt; 1) return [];
+        if (this._data.length &lt; 1) return [];
 
         this._checkAndFillTrailingData(currentTime);
-        const lastSampleOpen = currentTime - this.lastTime &lt; this.interval;
+        const lastSampleOpen = currentTime - this._lastTime &lt; this.interval;
 
-        if (includeOpen || !lastSampleOpen) return this.data.slice(-n);
+        if (includeOpen || !lastSampleOpen) return this._data.slice(-n);
 
-        const offset = this.data.length - 1;
-        return this.data.slice(Math.max(0, offset - n), offset);
+        const offset = this._data.length - 1;
+        return this._data.slice(Math.max(0, offset - n), offset);
+    }
+
+    /**
+     * Get a value from the time series for a specific time.
+     * @param {number} time     The time in the series from where data will
+     *                          be retrieved.
+     * @returns        The data at that time, or undefined if no data exists
+     *                 at that time.
+     */
+    getAt(time) {
+        time -= (time % this.interval);
+
+        if (time &lt; this._firstTime || time &gt; this._lastTime) {
+            return undefined;
+        }
+
+        const index = (time - this._firstTime) / this.interval;
+        return this._data[index];
     }
 
     // eslint-disable-next-line no-unused-vars
