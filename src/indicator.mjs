@@ -51,8 +51,7 @@ export class EMAIndicator extends Indicator {
             time < currentTime;
             time += this.intervalMs
         ) {
-            const ema = this._calculate(time);
-            console.log('  ', time, ema.toString());
+            this._calculate(time);
         }
 
         // Feed stream data in the TimeSeriesData store
