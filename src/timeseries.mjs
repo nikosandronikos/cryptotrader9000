@@ -13,55 +13,55 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         super();
         this.intervalStr = interval;
         this.interval = chartIntervalToMs(interval);
-        this.firstTime = Infinity;
-        this.lastTime = 0;
-        this.data = [];
+        this._firstTime = Infinity;
+        this._lastTime = 0;
+        this._data = [];
     }
 
     _checkAndFillTrailingData(time) {
         if (time % this.interval !== 0) time -= (time % this.interval);
-        const gap = time - this.lastTime;
+        const gap = time - this._lastTime;
         if (gap < this.interval) return;
         const nMissing = Math.ceil(gap / this.interval);
         //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
-        this.data = this.data.concat(
-            new Array(nMissing).fill(this.data[this.data.length - 1])
+        this._data = this._data.concat(
+            new Array(nMissing).fill(this._data[this._data.length - 1])
         );
-        this.lastTime = time;
+        this._lastTime = time;
     }
 
     _checkAndFillLeadingData(time, data) {
         if (time % this.interval !== 0) time -= (time % this.interval);
-        const gap = this.firstTime - time;
+        const gap = this._firstTime - time;
         if (gap < this.interval) return;
         const nMissing = Math.ceil(gap / this.interval);
         //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
-        this.data = new Array(nMissing).fill(data).concat(this.data);
-        this.firstTime = time;
+        this._data = new Array(nMissing).fill(data).concat(this._data);
+        this._firstTime = time;
     }
 
     addData(time, data) {
         if (time % this.interval !== 0) time -= (time % this.interval);
 
-        if (this.data.length === 0) {
-            this.data.push(data);
-            this.lastTime = this.firstTime = time;
-        } else if (time > this.lastTime) {
+        if (this._data.length === 0) {
+            this._data.push(data);
+            this._lastTime = this._firstTime = time;
+        } else if (time > this._lastTime) {
             // Comes after last sample
             this._checkAndFillTrailingData(time - this.interval);
-            this.data.push(data);
-            this.lastTime = time;
+            this._data.push(data);
+            this._lastTime = time;
             this.notifyObservers('extended', data, time);
-        } else if (time < this.firstTime) {
+        } else if (time < this._firstTime) {
             // Comes before first sample
             this._checkAndFillLeadingData(time + this.interval, data);
-            this.data.unshift(data);
-            this.firstTime = time;
+            this._data.unshift(data);
+            this._firstTime = time;
         } else {
             // If it falls exactly on the interval, overwrites an existing
             // sample, otherwise an error.
-            const replaceIndex = (time - this.firstTime) / this.interval;
-            this.data[replaceIndex] = data;
+            const replaceIndex = (time - this._firstTime) / this.interval;
+            this._data[replaceIndex] = data;
             this.notifyObservers('replaceRecent', data, time);
         }
     }
@@ -73,15 +73,15 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     // be returned.
     getRecent(n, currentTime, includeOpen=true) {
         if (n < 1) throw new Error('n < 1');
-        if (this.data.length < 1) return [];
+        if (this._data.length < 1) return [];
 
         this._checkAndFillTrailingData(currentTime);
-        const lastSampleOpen = currentTime - this.lastTime < this.interval;
+        const lastSampleOpen = currentTime - this._lastTime < this.interval;
 
-        if (includeOpen || !lastSampleOpen) return this.data.slice(-n);
+        if (includeOpen || !lastSampleOpen) return this._data.slice(-n);
 
-        const offset = this.data.length - 1;
-        return this.data.slice(Math.max(0, offset - n), offset);
+        const offset = this._data.length - 1;
+        return this._data.slice(Math.max(0, offset - n), offset);
     }
 
     /**
@@ -94,12 +94,12 @@ export class TimeSeriesData extends ObservableMixin(Object) {
     getAt(time) {
         time -= (time % this.interval);
 
-        if (time < this.firstTime || time > this.lastTime) {
+        if (time < this._firstTime || time > this._lastTime) {
             return undefined;
         }
 
-        const index = (time - this.firstTime) / this.interval;
-        return this.data[index];
+        const index = (time - this._firstTime) / this.interval;
+        return this._data[index];
     }
 
     // eslint-disable-next-line no-unused-vars

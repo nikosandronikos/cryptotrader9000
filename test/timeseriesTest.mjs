@@ -9,13 +9,13 @@ test('TimeSeriesData: add data front to back', (t) => {
 
     for (; i < 10; i++) {
         ts.addData(i * intervalMs, i);
-        t.equal(ts.data.length, i+1);
+        t.equal(ts._data.length, i+1);
     }
 
-    t.equal(ts.firstTime, 0);
-    t.equal(ts.lastTime, (i - 1) * intervalMs);
+    t.equal(ts._firstTime, 0);
+    t.equal(ts._lastTime, (i - 1) * intervalMs);
     let lastV = -1;
-    for (const v of ts.data) {
+    for (const v of ts._data) {
         t.equal(v > lastV, true);
         lastV = v;
     }
@@ -31,13 +31,13 @@ test('TimeSeriesData: add data back to front', (t) => {
 
     for (; i < n; i++) {
         ts.addData((n - i) * intervalMs, n - i);
-        t.equal(ts.data.length, i+1);
+        t.equal(ts._data.length, i+1);
     }
 
-    t.equal(ts.firstTime, 1 * intervalMs);
-    t.equal(ts.lastTime, n * intervalMs);
+    t.equal(ts._firstTime, 1 * intervalMs);
+    t.equal(ts._lastTime, n * intervalMs);
     let lastV = -1;
-    for (const v of ts.data) {
+    for (const v of ts._data) {
         t.equal(v > lastV, true);
         lastV = v;
     }
@@ -54,9 +54,9 @@ test('TimeSeriesData: add data overwrite', (t) => {
     for (let i = 0; i < nOver * nOverTimes; i++) {
         // First few (nOver) add normally, then overwriting starts.
         ts.addData((i % nOver) * intervalMs, i);
-        t.equal(ts.data.length, Math.min(i+1, nOver));
+        t.equal(ts._data.length, Math.min(i+1, nOver));
     }
-    t.deepEqual(ts.data, expected);
+    t.deepEqual(ts._data, expected);
     t.end();
 });
 
@@ -68,14 +68,14 @@ test('TimeSeriesData: add off interval', (t) => {
 
         ts.addData(intervalMs, 1);
         ts.addData(intervalMs * 2, 2);
-        t.deepEqual(ts.data, [1, 2], 'a');
+        t.deepEqual(ts._data, [1, 2], 'a');
 
         ts.addData(intervalMs * 1.5, 3);
-        t.deepEqual(ts.data, [3, 2], 'b');
+        t.deepEqual(ts._data, [3, 2], 'b');
         ts.addData(intervalMs * 0.9, 4);
-        t.deepEqual(ts.data, [4, 3, 2], 'c');
+        t.deepEqual(ts._data, [4, 3, 2], 'c');
         ts.addData(intervalMs * 2.2, 5);
-        t.deepEqual(ts.data, [4, 3, 5], 'c');
+        t.deepEqual(ts._data, [4, 3, 5], 'c');
     }
     t.end();
 });
@@ -139,21 +139,21 @@ test('TimeSeriesData: add data miss intervals at end', (t) => {
     const intervalMs = 1 * 60 * 1000;
 
     ts.addData(intervalMs, 1);
-    t.equal(ts.data.length, 1, 'a');
+    t.equal(ts._data.length, 1, 'a');
 
     ts.addData(intervalMs * 3, 3);
-    t.equal(ts.data.length, 3, 'b');
+    t.equal(ts._data.length, 3, 'b');
 
     ts.addData(intervalMs * 5, 5);
-    t.equal(ts.data.length, 5, 'c');
+    t.equal(ts._data.length, 5, 'c');
 
     const expected = [1,1,3,3,5]
-    t.deepEqual(ts.data, expected, 'd');
+    t.deepEqual(ts._data, expected, 'd');
 
     // Shouldn't cause new data to be added.
     ts.addData(intervalMs * 5.5, 6);
-    t.equal(ts.data.length, 5, 'e');
-    t.deepEqual(ts.data, [1,1,3,3,6], 'f');
+    t.equal(ts._data.length, 5, 'e');
+    t.deepEqual(ts._data, [1,1,3,3,6], 'f');
 
     t.end();
 });
@@ -163,17 +163,17 @@ test('TimeSeriesData: add data miss intervals at start', (t) => {
     const intervalMs = 1 * 60 * 1000;
 
     ts.addData(intervalMs * 5, 1);
-    t.equal(ts.data.length, 1, 'a');
-    t.equal(ts.firstTime, intervalMs * 5, 'a.2');
-    t.equal(ts.lastTime, intervalMs * 5, 'a.3');
+    t.equal(ts._data.length, 1, 'a');
+    t.equal(ts._firstTime, intervalMs * 5, 'a.2');
+    t.equal(ts._lastTime, intervalMs * 5, 'a.3');
 
     ts.addData(intervalMs * 3, 3);
-    t.equal(ts.data.length, 3, 'b');
-    t.deepEqual(ts.data, [3, 3, 1], 'c');
+    t.equal(ts._data.length, 3, 'b');
+    t.deepEqual(ts._data, [3, 3, 1], 'c');
 
     ts.addData(intervalMs * 1.5, 5);
-    t.equal(ts.data.length, 5, 'd');
-    t.deepEqual(ts.data, [5, 5, 3, 3, 1], 'e');
+    t.equal(ts._data.length, 5, 'd');
+    t.deepEqual(ts._data, [5, 5, 3, 3, 1], 'e');
 
     t.end();
 });
