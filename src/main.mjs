@@ -1,6 +1,8 @@
 import {BinanceAccess} from './binance.mjs';
 import {MultiEMAIndicator} from './indicator.mjs';
-import {log} from './log';
+import {log, LogLevelType} from './log';
+
+import Big from 'big.js';
 
 (async function main() {
     log.info('Initialising exchange access');
@@ -8,7 +10,7 @@ import {log} from './log';
     await binance.init();
     log.info('  Binance access initialised.');
 
-    log.notify('Bot online.');
+    log.level = LogLevelType.info;
 
     await binance.loadAccount(
         process.env.BINANCEACCOUNT_NAME,
@@ -17,14 +19,40 @@ import {log} from './log';
     );
 
     const nulsbtc = binance.getCoinPair('NULS','BTC');
-    // eslint-disable-next-line no-unused-vars
-    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '1m', [55, 21, 13, 8]);
+    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '5m', [21, 13, 8]);
 
-    multiEma.addObserver('fastSlowCross', function() {log.debug('fastSlowCross')});
-    multiEma.addObserver('cross', function() {log.debug('Cross')});
-    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update')});
+    log.notify(`Bot online. Tracking ${multiEma.coinPair.symbol} ${multiEma.interval}.`);
 
-    //const eosbtc = binance.getCoinPair('EOS','BTC');
-    // eslint-disable-next-line no-unused-vars
-    //const eosMultiEma = MultiEMAIndicator.createAndInit(binance, eosbtc, '15m', [55, 21, 13, 8]);
+    let buyAt = null;
+    let cumulative = new Big(0);
+
+    // Possibly the world's simplest trading strategy.
+    // Buy when The fast and slow EMA cross and sell when they cross again.
+    multiEma.addObserver('fastSlowCross', (crossed, time, price) => {
+        const message = [];
+        const signal =
+            crossed.findIndex((e) => e.nPeriods == multiEma.slow)
+            <
+            crossed.findIndex((e) => e.nPeriods == multiEma.fast)
+                ? 'sell' : 'buy';
+        message.push(
+            multiEma.coinPair.symbol, multiEma.interval,
+            'Fast and slow EMA cross.',
+            `Signal: ${signal}.`,
+            `Price: ${price.toString()}.`
+        );
+        if (signal == 'buy') {
+            buyAt = price;
+        } else if (buyAt != null) {
+            const diff = price.sub(buyAt);
+            cumulative = cumulative.plus(diff);
+            message.push(
+                'Sold. Buy/sell difference: ', diff.toString(),
+                '. Cumulative gain:', cumulative.toString()
+            );
+        }
+        log.notify(...message);
+    });
+    multiEma.addObserver('cross', function() {log.debug('Cross');});
+    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});
 })();
