@@ -212,7 +212,7 @@ export class BinanceAccess {
 
         return this._axiosInst.get(cmd.url, requestConfig)
             .then(response => {
-                log.info(
+                log.debug(
                     `${cmd.url} returned ${response.statusText} `+
                     `(${response.status})`
                 );

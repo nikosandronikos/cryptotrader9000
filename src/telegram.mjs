@@ -29,7 +29,7 @@ export class TelegramBot {
 
         return this._axiosInst.get(url, cfg)
             .then(response => {
-                log.info(
+                log.debug(
                     `${url} returned ${response.statusText} `+
                     `(${response.status})`+
                     `${response.data}`
