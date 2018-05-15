@@ -7,7 +7,7 @@
     "axios": "^0.18.0",
     "big.js": "^5.0.3",
     "dotenv": "^5.0.1",
-    "ws": "^5.1.0"
+    "ws": "^5.1.1"
   },
   "devDependencies": {
     "esdoc": "^1.1.0",
