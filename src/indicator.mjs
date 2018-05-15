@@ -80,7 +80,7 @@ export class EMAIndicator extends Indicator {
 
         const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);
         this.data.addData(time, ema);
-        this.notifyObservers('update', time, ema);
+        this.notifyObservers('update', time, ema, current);
         return ema;
     }
 }
@@ -96,6 +96,9 @@ export class MultiEMAIndicator extends Indicator {
         this.data = new TimeSeriesData(interval);
         this.currentTime = 0;
         this.nUpdates = 0;
+        this.currentPrice = null;
+        this.slow = Math.max(...lengths);
+        this.fast = Math.min(...lengths);
     }
 
     async init() {
@@ -128,11 +131,12 @@ export class MultiEMAIndicator extends Indicator {
         for (const ema of this.emas) {
             // FIXME: Should this just be closed prices?
             // eslint-disable-next-line no-unused-vars
-            ema.addObserver('update', (time, ema) => {
+            ema.addObserver('update', (time, ema, price) => {
                 if (time > this.currentTime) {
                     this.currentTime = time;
                     this.nUpdates = 0;
                 }
+                this.currentPrice = price;
                 this.nUpdates ++;
                 if (this.nUpdates == this.lengths.length) {
                     log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);
@@ -143,9 +147,6 @@ export class MultiEMAIndicator extends Indicator {
     }
 
     _update(time) {
-        const slow = this.emas[0].data.getAt(time);
-        const fast = this.emas[this.emas.length - 1].data.getAt(time);
-        if (fast === undefined || slow === undefined) throw new Error('Data missing.');
         const newOrder = [];
 
         for (const ema of this.emas) newOrder.push(ema);
@@ -195,11 +196,11 @@ export class MultiEMAIndicator extends Indicator {
         if (cross.fastSlowCross) {
             // FIXME: Should we provide prices of emas?
             // Current price might be even more useful.
-            this.notifyObservers('fastSlowCross', cross.crossed, time);
+            this.notifyObservers('fastSlowCross', cross.crossed, time, this.currentPrice);
             return;
         }
 
-        this.notifyObservers('cross', cross.crossed, time);
+        this.notifyObservers('cross', cross.crossed, time, this.currentPrice);
     }
 
     static async createAndInit(binance, coinPair, interval, lengths) {
