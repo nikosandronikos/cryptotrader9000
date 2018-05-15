@@ -181,8 +181,8 @@ export class MultiEMAIndicator extends Indicator {
         }
 
         const cross = findCross(
-                this.orderedEmas, newOrder, fast.nPeriods, slow.nPeriods, (a) => a.nPeriods
-            );
+            this.orderedEmas, newOrder, this.fast, this.slow, (a) => a.nPeriods
+        );
         this.orderedEmas = newOrder;
 
         const crossDebug = [];

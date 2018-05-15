@@ -12,7 +12,7 @@ export const LogLevelType = {
     notify: 2,
     info:   4,
     debug:  8
-}
+};
 
 /**
  * @protected
