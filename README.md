@@ -35,6 +35,10 @@ The initial entry point is the [BinanceAccess](https://nikosandronikos.github.io
 Full documentation is available at:
 https://nikosandronikos.github.io/cryptotrader9000/
 
+Note that esdoc doesn't like the method used to mixin ObservableMixin to other
+classes. This results in blank documentation for any class using ObservableMixin.
+Sorry! You'll just have to look at the source for now.
+
 # Tests
 [![Build Status](https://travis-ci.org/nikosandronikos/cryptotrader9000.svg?branch=master)](https://travis-ci.org/nikosandronikos/cryptotrader9000)
 
