@@ -12,9 +12,8 @@ function emaTest(t, prices, expected, n) {
     const fakeBinance = {
         getTimestamp: () => time
     }
-    const ema = new EMAIndicator(fakeBinance, 'NOCOIN', n, '1m');
     const ts = new TimeSeriesData('1m');
-    ema.source = ts;
+    const ema = new EMAIndicator(fakeBinance, `emaTest EMA({$n})`, ts, n);
     const intervalMs = 1 * 60 * 1000;
     let i = 0;
     for (const price of prices) {

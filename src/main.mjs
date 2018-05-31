@@ -1,5 +1,5 @@
 import {BinanceAccess} from './binance.mjs';
-import {MultiEMAIndicator} from './indicator.mjs';
+import {PriceIndicator, MultiEMAIndicator} from './indicator.mjs';
 import {log, LogLevelType} from './log';
 
 import Big from 'big.js';
@@ -10,18 +10,21 @@ import Big from 'big.js';
     await binance.init();
     log.info('  Binance access initialised.');
 
-    log.level = LogLevelType.info;
+    log.level = LogLevelType.debug;
 
     await binance.loadAccount(
         process.env.BINANCEACCOUNT_NAME,
         process.env.BINANCEACCOUNT_KEY,
         process.env.BINANCEACCOUNT_SECRET
     );
-
+    debugger;
     const nulsbtc = binance.getCoinPair('NULS','BTC');
-    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '5m', [21, 13, 8]);
+    const nulsbtcPrice = await PriceIndicator.createAndInit(
+        binance, nulsbtc.symbol, nulsbtc, '1m', 20);
+    const multiEma = await MultiEMAIndicator.createAndInit(
+        binance, `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);
 
-    log.notify(`Bot online. Tracking ${multiEma.coinPair.symbol} ${multiEma.interval}.`);
+    log.notify(`Bot online. Tracking ${nulsbtc.symbol} ${nulsbtcPrice.interval}.`);
 
     let buyAt = null;
     let cumulative = new Big(0);
@@ -36,7 +39,7 @@ import Big from 'big.js';
             crossed.findIndex((e) => e.nPeriods == multiEma.fast)
                 ? 'sell' : 'buy';
         message.push(
-            multiEma.coinPair.symbol, multiEma.interval,
+            multiEma.name, multiEma.interval,
             'Fast and slow EMA cross.',
             `Signal: ${signal}.`,
             `Price: ${price.toString()}.`
@@ -50,9 +53,14 @@ import Big from 'big.js';
                 'Sold. Buy/sell difference: ', diff.toString(),
                 '. Cumulative gain:', cumulative.toString()
             );
+            buyAt = null;
         }
         log.notify(...message);
     });
-    multiEma.addObserver('cross', function() {log.debug('Cross');});
+    multiEma.addObserver('cross', (crossed, time, price) => {
+        //if (buyAt == null) return;
+        //const signal =
+        //    crossed.findIndex((e) => e.nPeriods == 
+    });
     multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});
 })();
