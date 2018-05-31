@@ -1,6 +1,7 @@
 import {BinanceCommands} from './binance.mjs';
 import {ObservableMixin} from './observable';
 import {TimeSeriesData} from './timeseries';
+import {chartIntervalToMs} from './utils';
 import {log} from './log';
 
 import Big from 'big.js';
@@ -194,6 +195,32 @@ export class BinanceStreamKlines extends BinanceStream {
             }
         );
         return stream;
+    }
+
+    async getHistoryFromTo(startTime, endTime) {
+        const history = new TimeSeriesData(this.interval);
+        const intervalMs = chartIntervalToMs(this.interval);
+        const klines = await this.binance.apiCommand(
+            BinanceCommands.klines,
+            {
+                symbol:     this.symbol,
+                interval:   this.interval,
+                limit:      Math.ceil((endTime - startTime) / intervalMs),
+                // Ensure we get the kline that startTime falls within
+                startTime:  startTime - (startTime % chartIntervalToMs(this.interval)),
+                endTime:    endTime
+            }
+        );
+        let lastTime = 0;
+        for (const kline of klines) {
+            if (kline[0] < lastTime) throw 'Klines not oldest to newest.';
+            lastTime = kline[0];
+            const attrIndex = klinesStreamToRestMap.get(this.attr);
+            const data = Big(kline[attrIndex]);
+            history.addData(lastTime, data);
+        }
+
+        return history;
     }
 
     async getHistory(length) {
