@@ -101,38 +101,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             this._data[replaceIndex] = data;
             this.notifyObservers('replaceRecent', data, time);
         }
-    }
-
-    /**
-     * Get the most recent samples. By default, this includes the most recent
-     * interval which will likely not be closed.
-     * If the current time is past the last data sample, then the value of the
-     * last data sample will be used to fill the data samples up to the current time.
-     * @param {number}      n           The number of samples to return.
-     *                                  If n > the number of samples available, all
-     *                                  available samples will be returned.
-     * @param {currentTime} currentTime The current time in milliseconds. This
-     *                                  is required to determine if the latest
-     *                                  sample is closed and to pad data
-     *                                  if the current time is after the last
-     *                                  data sample.
-     * @param {boolean}     [includeOpen=true]
-     *                                  Whether to include open or only closed
-     *                                  samples. A sample is closed once the full
-     *                                  time for the interval has elapsed.
-     *
-     * @return {Array<number|string|boolean|object>}
-     *                                  An array containing the requested samples,
-     *                                  or an empty array if there is no data
-     *                                  stored.
-     * @throws {Error}  If n < 1.
-     */
-    getRecent(n, currentTime, includeOpen=true) {
-        if (n < 1) throw new Error('n < 1');
-        if (this._data.length < 1) return [];
-
-        this._checkAndFillTrailingData(currentTime);
-        const lastSampleOpen = currentTime - this._lastTime < this.interval;
 
         this.hasData = this._data.length > 0;
     }
