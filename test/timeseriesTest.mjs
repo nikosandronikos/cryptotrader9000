@@ -7,12 +7,15 @@ test('TimeSeriesData: add data front to back', (t) => {
     const intervalMs = 1 * 60 * 1000;
     let i = 0;
 
+    t.equal(ts.hasData, false);
+
     for (; i < 10; i++) {
         ts.addData(i * intervalMs, i);
         t.equal(ts._data.length, i+1);
+        t.equal(ts.hasData, true);
     }
 
-    t.equal(ts._firstTime, 0);
+    t.equal(ts.firstTime, 0);
     t.equal(ts._lastTime, (i - 1) * intervalMs);
     let lastV = -1;
     for (const v of ts._data) {
@@ -32,9 +35,10 @@ test('TimeSeriesData: add data back to front', (t) => {
     for (; i < n; i++) {
         ts.addData((n - i) * intervalMs, n - i);
         t.equal(ts._data.length, i+1);
+        t.equal(ts.hasData, true);
     }
 
-    t.equal(ts._firstTime, 1 * intervalMs);
+    t.equal(ts.firstTime, 1 * intervalMs);
     t.equal(ts._lastTime, n * intervalMs);
     let lastV = -1;
     for (const v of ts._data) {
@@ -67,6 +71,7 @@ test('TimeSeriesData: add off interval', (t) => {
         const intervalMs = chartIntervalToMs(intervalStr);
 
         ts.addData(intervalMs, 1);
+        t.equal(ts.hasData, true);
         ts.addData(intervalMs * 2, 2);
         t.deepEqual(ts._data, [1, 2], 'a');
 
@@ -77,60 +82,6 @@ test('TimeSeriesData: add off interval', (t) => {
         ts.addData(intervalMs * 2.2, 5);
         t.deepEqual(ts._data, [4, 3, 5], 'c');
     }
-    t.end();
-});
-
-test('TimeSeriesData: get recent', (t) => {
-    const ts = new TimeSeriesData('1m');
-    const intervalMs = 1 * 60 * 1000;
-    const n = 3;
-    let i = 0;
-
-    // Check that empty array returned when no data available.
-    t.equal(ts.getRecent(3, intervalMs) instanceof Array, true);
-    t.equal(ts.getRecent(3, intervalMs).length, 0);
-
-    ts.addData(i * intervalMs, i);
-    // Request for data with only one sample that isn't closed should
-    // give nothing.
-    t.deepEqual(ts.getRecent(10, i * intervalMs, false) instanceof Array,true); 
-    t.deepEqual(ts.getRecent(10, i * intervalMs, false).length, 0);
-    i++;
-    for (; i < n; i++) {
-        ts.addData(i * intervalMs, i);
-    }
-    // i is used to determine last time sample below, so return it to the
-    // last used value.
-    i--;
-
-    t.throws(() => ts.getRecent(0, intervalMs), Error);
-
-    t.deepEqual(ts.getRecent(1, i * intervalMs) instanceof Array, true);
-    t.deepEqual(ts.getRecent(1, i * intervalMs), [i]);
-    t.deepEqual(ts.getRecent(1, i * intervalMs, true), [i]);
-    t.deepEqual(ts.getRecent(1, i * intervalMs, false), [i-1]);
-
-    t.deepEqual(ts.getRecent(2, i * intervalMs), [i-1,i]);
-    t.deepEqual(ts.getRecent(2, i * intervalMs, true), [i-1,i]);
-    t.deepEqual(ts.getRecent(2, i * intervalMs, false), [i-2, i-1]);
-
-    t.deepEqual(ts.getRecent(3, i * intervalMs), [i-2,i-1,i]);
-    t.deepEqual(ts.getRecent(3, i * intervalMs, true), [i-2,i-1,i]);
-    t.deepEqual(ts.getRecent(3, i * intervalMs, false), [i-2,i-1]);
-
-    t.deepEqual(ts.getRecent(4, i * intervalMs), [i-2,i-1,i]);
-    t.deepEqual(ts.getRecent(4, i * intervalMs, true), [i-2,i-1,i]);
-    t.deepEqual(ts.getRecent(4, i * intervalMs, false), [i-2,i-1]);
-    t.deepEqual(ts.getRecent(10, i * intervalMs, false), [i-2,i-1]);
-
-    // Request data from a timepoint with missing intervals.
-    // Missing data should be created by copying last element.
-    t.deepEqual(ts.getRecent(4, (i + 2) * intervalMs), [i-1,i,i,i]);
-    // Shouldn't actually add another one - within the same interval as the last
-    t.deepEqual(ts.getRecent(4, (i + 2 + 0.5) * intervalMs), [i-1,i,i,i]);
-    // Should add one more
-    t.deepEqual(ts.getRecent(4, (i + 3) * intervalMs), [i,i,i,i], '<-');
-
     t.end();
 });
 
@@ -164,7 +115,7 @@ test('TimeSeriesData: add data miss intervals at start', (t) => {
 
     ts.addData(intervalMs * 5, 1);
     t.equal(ts._data.length, 1, 'a');
-    t.equal(ts._firstTime, intervalMs * 5, 'a.2');
+    t.equal(ts.firstTime, intervalMs * 5, 'a.2');
     t.equal(ts._lastTime, intervalMs * 5, 'a.3');
 
     ts.addData(intervalMs * 3, 3);
@@ -206,6 +157,70 @@ test('TimeSeriesData: getAt', (t) => {
     t.equal(ts.getAt(intervalMs * 7), 6);
     t.equal(ts.getAt(intervalMs * 8), 8);
     t.equal(ts.getAt(intervalMs * 9), undefined);
+
+    t.end();
+});
+
+test('TimeSeriesData: merge', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const intervalMs = 1 * 60 * 1000;
+    const baseTimeOffset = intervalMs * 10;
+
+    ts.addData(intervalMs * 1 + baseTimeOffset, 1);
+    ts.addData(intervalMs * 2 + baseTimeOffset, 2);
+    ts.addData(intervalMs * 3 + baseTimeOffset, 3);
+    ts.addData(intervalMs * 4 + baseTimeOffset, 4);
+
+    const tsDiffInterval = new TimeSeriesData('5m');
+
+    t.throws(() => ts.merge(tsDiffInterval), Error);
+
+    const tsB = new TimeSeriesData('1m');
+    tsB.addData(intervalMs * 1, 5);
+    tsB.addData(intervalMs * 2, 6);
+    tsB.addData(intervalMs * 3, 7);
+
+    ts.merge(tsB);
+    t.deepEqual(ts._data, [5,6,7,7,7,7,7,7,7,7,1,2,3,4], 'b');
+    t.equal(ts.firstTime, tsB.firstTime, 'b');
+    t.equal(ts._lastTime, intervalMs * 4 + baseTimeOffset, 'b');
+
+    const tsC = new TimeSeriesData('1m');
+    tsC.addData(intervalMs * 5, 8);
+    tsC.addData(intervalMs * 6, 9);
+    ts.merge(tsC);
+    t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4], 'c');
+    t.equal(ts.firstTime, tsB.firstTime, 'c');
+    t.equal(ts._lastTime, intervalMs * 4 + baseTimeOffset, 'c');
+
+    const tsD = new TimeSeriesData('1m');
+    tsD.addData(intervalMs * 5 + baseTimeOffset, 10);
+    tsD.addData(intervalMs * 6 + baseTimeOffset, 11);
+    ts.merge(tsD);
+    t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11], 'd');
+    t.equal(ts.firstTime, tsB.firstTime, 'd');
+    t.equal(ts._lastTime, intervalMs * 6 + baseTimeOffset, 'd');
+
+    const tsE = new TimeSeriesData('1m');
+    tsE.addData(intervalMs * 9 + baseTimeOffset, 12);
+    tsE.addData(intervalMs * 10 + baseTimeOffset, 13);
+    tsE.addData(intervalMs * 11 + baseTimeOffset, 14);
+    ts.merge(tsE);
+    t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11,11,11,12,13,14], 'e');
+    t.equal(ts.firstTime, tsB.firstTime, 'e');
+    t.equal(ts._lastTime, intervalMs * 11 + baseTimeOffset, 'e');
+
+    const tsEmpty = new TimeSeriesData('1m');
+    ts.merge(tsEmpty);
+    t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11,11,11,12,13,14], 'f');
+    t.equal(ts.firstTime, tsB.firstTime, 'f');
+    t.equal(ts._lastTime, intervalMs * 11 + baseTimeOffset, 'f');
+
+    tsEmpty.merge(ts);
+    t.deepEqual(tsEmpty._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11,11,11,12,13,14], 'g');
+    t.equal(tsEmpty.firstTime, ts.firstTime, 'g');
+    t.equal(tsEmpty._lastTime, ts._lastTime, 'g');
+    t.equal(tsEmpty.hasData, true, 'g');
 
     t.end();
 });
