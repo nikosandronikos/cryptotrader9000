@@ -1,28 +1,28 @@
 {
   "type": "File",
   "start": 0,
-  "end": 3552,
+  "end": 3876,
   "loc": {
     "start": {
       "line": 1,
       "column": 0
     },
     "end": {
-      "line": 104,
+      "line": 112,
       "column": 0
     }
   },
   "program": {
     "type": "Program",
     "start": 0,
-    "end": 3552,
+    "end": 3876,
     "loc": {
       "start": {
         "line": 1,
         "column": 0
       },
       "end": {
-        "line": 104,
+        "line": 112,
         "column": 0
       }
     },
@@ -4753,7 +4753,8 @@
                 }
               }
             ],
-            "directives": []
+            "directives": [],
+            "trailingComments": null
           },
           "leadingComments": [
             {
@@ -4805,7 +4806,24 @@
               }
             }
           ],
-          "trailingComments": []
+          "trailingComments": [
+            {
+              "type": "CommentBlock",
+              "value": "*\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n ",
+              "start": 3551,
+              "end": 3787,
+              "loc": {
+                "start": {
+                  "line": 103,
+                  "column": 0
+                },
+                "end": {
+                  "line": 108,
+                  "column": 3
+                }
+              }
+            }
+          ]
         },
         "leadingComments": [
           {
@@ -4852,6 +4870,266 @@
               },
               "end": {
                 "line": 79,
+                "column": 3
+              }
+            }
+          }
+        ],
+        "trailingComments": [
+          {
+            "type": "CommentBlock",
+            "value": "*\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n ",
+            "start": 3551,
+            "end": 3787,
+            "loc": {
+              "start": {
+                "line": 103,
+                "column": 0
+              },
+              "end": {
+                "line": 108,
+                "column": 3
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "ExportNamedDeclaration",
+        "start": 3788,
+        "end": 3875,
+        "loc": {
+          "start": {
+            "line": 109,
+            "column": 0
+          },
+          "end": {
+            "line": 111,
+            "column": 1
+          }
+        },
+        "specifiers": [],
+        "source": null,
+        "declaration": {
+          "type": "FunctionDeclaration",
+          "start": 3795,
+          "end": 3875,
+          "loc": {
+            "start": {
+              "line": 109,
+              "column": 7
+            },
+            "end": {
+              "line": 111,
+              "column": 1
+            }
+          },
+          "id": {
+            "type": "Identifier",
+            "start": 3804,
+            "end": 3811,
+            "loc": {
+              "start": {
+                "line": 109,
+                "column": 16
+              },
+              "end": {
+                "line": 109,
+                "column": 23
+              },
+              "identifierName": "timeStr"
+            },
+            "name": "timeStr",
+            "leadingComments": null
+          },
+          "generator": false,
+          "expression": false,
+          "async": false,
+          "params": [
+            {
+              "type": "Identifier",
+              "start": 3812,
+              "end": 3821,
+              "loc": {
+                "start": {
+                  "line": 109,
+                  "column": 24
+                },
+                "end": {
+                  "line": 109,
+                  "column": 33
+                },
+                "identifierName": "timestamp"
+              },
+              "name": "timestamp"
+            }
+          ],
+          "body": {
+            "type": "BlockStatement",
+            "start": 3823,
+            "end": 3875,
+            "loc": {
+              "start": {
+                "line": 109,
+                "column": 35
+              },
+              "end": {
+                "line": 111,
+                "column": 1
+              }
+            },
+            "body": [
+              {
+                "type": "ReturnStatement",
+                "start": 3829,
+                "end": 3873,
+                "loc": {
+                  "start": {
+                    "line": 110,
+                    "column": 4
+                  },
+                  "end": {
+                    "line": 110,
+                    "column": 48
+                  }
+                },
+                "argument": {
+                  "type": "CallExpression",
+                  "start": 3836,
+                  "end": 3872,
+                  "loc": {
+                    "start": {
+                      "line": 110,
+                      "column": 11
+                    },
+                    "end": {
+                      "line": 110,
+                      "column": 47
+                    }
+                  },
+                  "callee": {
+                    "type": "MemberExpression",
+                    "start": 3836,
+                    "end": 3870,
+                    "loc": {
+                      "start": {
+                        "line": 110,
+                        "column": 11
+                      },
+                      "end": {
+                        "line": 110,
+                        "column": 45
+                      }
+                    },
+                    "object": {
+                      "type": "NewExpression",
+                      "start": 3836,
+                      "end": 3855,
+                      "loc": {
+                        "start": {
+                          "line": 110,
+                          "column": 11
+                        },
+                        "end": {
+                          "line": 110,
+                          "column": 30
+                        }
+                      },
+                      "callee": {
+                        "type": "Identifier",
+                        "start": 3840,
+                        "end": 3844,
+                        "loc": {
+                          "start": {
+                            "line": 110,
+                            "column": 15
+                          },
+                          "end": {
+                            "line": 110,
+                            "column": 19
+                          },
+                          "identifierName": "Date"
+                        },
+                        "name": "Date"
+                      },
+                      "arguments": [
+                        {
+                          "type": "Identifier",
+                          "start": 3845,
+                          "end": 3854,
+                          "loc": {
+                            "start": {
+                              "line": 110,
+                              "column": 20
+                            },
+                            "end": {
+                              "line": 110,
+                              "column": 29
+                            },
+                            "identifierName": "timestamp"
+                          },
+                          "name": "timestamp"
+                        }
+                      ]
+                    },
+                    "property": {
+                      "type": "Identifier",
+                      "start": 3856,
+                      "end": 3870,
+                      "loc": {
+                        "start": {
+                          "line": 110,
+                          "column": 31
+                        },
+                        "end": {
+                          "line": 110,
+                          "column": 45
+                        },
+                        "identifierName": "toLocaleString"
+                      },
+                      "name": "toLocaleString"
+                    },
+                    "computed": false
+                  },
+                  "arguments": []
+                }
+              }
+            ],
+            "directives": []
+          },
+          "leadingComments": [
+            {
+              "type": "CommentBlock",
+              "value": "*\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n ",
+              "start": 3551,
+              "end": 3787,
+              "loc": {
+                "start": {
+                  "line": 103,
+                  "column": 0
+                },
+                "end": {
+                  "line": 108,
+                  "column": 3
+                }
+              }
+            }
+          ],
+          "trailingComments": []
+        },
+        "leadingComments": [
+          {
+            "type": "CommentBlock",
+            "value": "*\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n ",
+            "start": 3551,
+            "end": 3787,
+            "loc": {
+              "start": {
+                "line": 103,
+                "column": 0
+              },
+              "end": {
+                "line": 108,
                 "column": 3
               }
             }
@@ -5003,6 +5281,22 @@
         "end": {
           "line": 87,
           "column": 62
+        }
+      }
+    },
+    {
+      "type": "CommentBlock",
+      "value": "*\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n ",
+      "start": 3551,
+      "end": 3787,
+      "loc": {
+        "start": {
+          "line": 103,
+          "column": 0
+        },
+        "end": {
+          "line": 108,
+          "column": 3
         }
       }
     }
@@ -14634,6 +14928,515 @@
       }
     },
     {
+      "type": "CommentBlock",
+      "value": "*\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n ",
+      "start": 3551,
+      "end": 3787,
+      "loc": {
+        "start": {
+          "line": 103,
+          "column": 0
+        },
+        "end": {
+          "line": 108,
+          "column": 3
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "export",
+        "keyword": "export",
+        "beforeExpr": false,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null,
+        "updateContext": null
+      },
+      "value": "export",
+      "start": 3788,
+      "end": 3794,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 0
+        },
+        "end": {
+          "line": 109,
+          "column": 6
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "function",
+        "keyword": "function",
+        "beforeExpr": false,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "value": "function",
+      "start": 3795,
+      "end": 3803,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 7
+        },
+        "end": {
+          "line": 109,
+          "column": 15
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "name",
+        "beforeExpr": false,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "value": "timeStr",
+      "start": 3804,
+      "end": 3811,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 16
+        },
+        "end": {
+          "line": 109,
+          "column": 23
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "(",
+        "beforeExpr": true,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3811,
+      "end": 3812,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 23
+        },
+        "end": {
+          "line": 109,
+          "column": 24
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "name",
+        "beforeExpr": false,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "value": "timestamp",
+      "start": 3812,
+      "end": 3821,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 24
+        },
+        "end": {
+          "line": 109,
+          "column": 33
+        }
+      }
+    },
+    {
+      "type": {
+        "label": ")",
+        "beforeExpr": false,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3821,
+      "end": 3822,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 33
+        },
+        "end": {
+          "line": 109,
+          "column": 34
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "{",
+        "beforeExpr": true,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3823,
+      "end": 3824,
+      "loc": {
+        "start": {
+          "line": 109,
+          "column": 35
+        },
+        "end": {
+          "line": 109,
+          "column": 36
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "return",
+        "keyword": "return",
+        "beforeExpr": true,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null,
+        "updateContext": null
+      },
+      "value": "return",
+      "start": 3829,
+      "end": 3835,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 4
+        },
+        "end": {
+          "line": 110,
+          "column": 10
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "new",
+        "keyword": "new",
+        "beforeExpr": true,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null,
+        "updateContext": null
+      },
+      "value": "new",
+      "start": 3836,
+      "end": 3839,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 11
+        },
+        "end": {
+          "line": 110,
+          "column": 14
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "name",
+        "beforeExpr": false,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "value": "Date",
+      "start": 3840,
+      "end": 3844,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 15
+        },
+        "end": {
+          "line": 110,
+          "column": 19
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "(",
+        "beforeExpr": true,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3844,
+      "end": 3845,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 19
+        },
+        "end": {
+          "line": 110,
+          "column": 20
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "name",
+        "beforeExpr": false,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "value": "timestamp",
+      "start": 3845,
+      "end": 3854,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 20
+        },
+        "end": {
+          "line": 110,
+          "column": 29
+        }
+      }
+    },
+    {
+      "type": {
+        "label": ")",
+        "beforeExpr": false,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3854,
+      "end": 3855,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 29
+        },
+        "end": {
+          "line": 110,
+          "column": 30
+        }
+      }
+    },
+    {
+      "type": {
+        "label": ".",
+        "beforeExpr": false,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null,
+        "updateContext": null
+      },
+      "start": 3855,
+      "end": 3856,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 30
+        },
+        "end": {
+          "line": 110,
+          "column": 31
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "name",
+        "beforeExpr": false,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "value": "toLocaleString",
+      "start": 3856,
+      "end": 3870,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 31
+        },
+        "end": {
+          "line": 110,
+          "column": 45
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "(",
+        "beforeExpr": true,
+        "startsExpr": true,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3870,
+      "end": 3871,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 45
+        },
+        "end": {
+          "line": 110,
+          "column": 46
+        }
+      }
+    },
+    {
+      "type": {
+        "label": ")",
+        "beforeExpr": false,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3871,
+      "end": 3872,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 46
+        },
+        "end": {
+          "line": 110,
+          "column": 47
+        }
+      }
+    },
+    {
+      "type": {
+        "label": ";",
+        "beforeExpr": true,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null,
+        "updateContext": null
+      },
+      "start": 3872,
+      "end": 3873,
+      "loc": {
+        "start": {
+          "line": 110,
+          "column": 47
+        },
+        "end": {
+          "line": 110,
+          "column": 48
+        }
+      }
+    },
+    {
+      "type": {
+        "label": "}",
+        "beforeExpr": false,
+        "startsExpr": false,
+        "rightAssociative": false,
+        "isLoop": false,
+        "isAssign": false,
+        "prefix": false,
+        "postfix": false,
+        "binop": null
+      },
+      "start": 3874,
+      "end": 3875,
+      "loc": {
+        "start": {
+          "line": 111,
+          "column": 0
+        },
+        "end": {
+          "line": 111,
+          "column": 1
+        }
+      }
+    },
+    {
       "type": {
         "label": "eof",
         "beforeExpr": false,
@@ -14646,15 +15449,15 @@
         "binop": null,
         "updateContext": null
       },
-      "start": 3552,
-      "end": 3552,
+      "start": 3876,
+      "end": 3876,
       "loc": {
         "start": {
-          "line": 104,
+          "line": 112,
           "column": 0
         },
         "end": {
-          "line": 104,
+          "line": 112,
           "column": 0
         }
       }

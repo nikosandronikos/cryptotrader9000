@@ -702,7 +702,7 @@
     "__docId__": 34,
     "kind": "file",
     "name": "src/binancestream.mjs",
-    "content": "import {BinanceCommands} from './binance.mjs';\nimport {ObservableMixin} from './observable';\nimport {TimeSeriesData} from './timeseries';\nimport {log} from './log';\n\nimport Big from 'big.js';\nimport WebSocket from 'ws';\n\n/**\n * @access Public\n */\nexport const BinanceStreams = {\n    // Binance docs indicate klines stream will update every second\n    // but it appears to only update when a trade occurs.\n    klines: {\n        name: 'klines',\n        streamName: '${symbol}@kline_${interval}',\n        reqParams: ['interval', 'symbol']\n    },\n    // Streams at 1Hz pretty consistently\n    ticker: {\n        name: 'ticker',\n        streamName: '${symbol}@ticker',\n        reqParams: ['symbol']\n    },\n    depth: {\n        name: 'depth',\n        streamName: '${symbol}@depth',\n        reqParams: ['symbol']\n    }\n};\n\n/**\n * Maintains WebSocket connections to the Binance stream API.\n * @access Public\n */\nexport class StreamManager extends ObservableMixin(Object) {\n    constructor() {\n        super();\n        this.base = 'wss://stream.binance.com:9443';\n        this.streams = new Map();\n        this.ws = null;\n        this.messageListener = null;\n    }\n\n    /**\n     * Open a stream.\n     * config is an object from BinanceStreams.\n     * messageListener is called each time data is received.\n     */\n    async openStream(config, params={}, messageListener) {\n        // FIXME: WSS connections will be disconnected after 24 hours. Need\n        //        to handle reconnection.\n        let paramsOk = true;\n        let missing = [];\n        for (const param of config.reqParams) {\n            if (!params.hasOwnProperty(param)) {\n                paramsOk = false;\n                missing.push(param);\n            }\n        }\n        if (!paramsOk) {\n            throw `${config.name} missing parameters: ${missing.join()}`;\n        }\n\n        // Binance api wants lower case coinpairs in URIs\n        params.symbol = params.symbol.toLowerCase();\n\n        // Replaces sections of streamName denoted with ${} with\n        // the value of the config parameter named within the curly\n        // braces.\n        const name = config.streamName.replace(/\\${([a-z]+)}/g,\n            (match) => params[match.slice(2,-1)]\n        );\n\n        let streamDefn = null;\n        if (this.streams.has(name)) {\n            streamDefn = this.streams.get(name);\n        } else {\n            streamDefn = {listeners: []};\n            this.streams.set(name, streamDefn);\n            await this._createCombinedStream();\n        }\n        streamDefn.listeners.push(messageListener);\n    }\n\n    _closeCombinedStream() {\n        if (this.messageListener) {\n            this.ws.removeEventListener(this.messageListener);\n            this.messageListener = null;\n        }\n        this.ws.close();\n    }\n\n    async _createCombinedStream() {\n        const addr =\n            `${this.base}/stream?streams=${[...this.streams.keys()].join('/')}`;\n\n        log.debug(`Opening WebSocket ${addr}`);\n\n        if (this.ws) {\n            log.debug('  Closing existing connection.');\n            this._closeCombinedStream();\n        }\n\n        return new Promise((resolve, reject) => {\n            const ws = new WebSocket(addr);\n            ws.onopen = () => {\n                log.debug('Stream created and ready.');\n                this.messageListener =\n                    ws.addEventListener('message', (message) => {\n                        const full = JSON.parse(message.data);\n                        const data = full.data;\n                        const stream = this.streams.get(full.stream);\n                        for (const listener of stream.listeners) {\n                            listener(data);\n                        }\n                    });\n                ws.on('close', (code, reason) => {\n                    log.debug(`WebSocket closed. ${reason} (${code}).`);\n                });\n                this.ws = ws;\n                resolve(ws);\n            };\n            ws.onerror = (err) => reject(err);\n        });\n    }\n}\n\n/**\n * @access private\n */\nconst klinesStreamToRestMap = new Map([['k.t', 0], ['k.o', 1], ['k.h', 2], ['k.l', 3], ['k.c', 4], ['k.v', 5], ['k.T', 6], ['k.q', 7], ['k.n', 8], ['k.V', 9], ['k.Q', 10]]);\n\n/**\n * @access public\n */\nclass BinanceStream extends ObservableMixin(Object) {\n    constructor(binance, type, symbol, attr) {\n        super();\n        this.binance = binance;\n        this.type = type;\n        this.symbol = symbol;\n        this.attr = attr;\n        this.stream = null;\n        // The required attribute is specified using dot notation.\n        // E.g. 'kline.close'.\n        // This code to extract that attribute from the dictionary is a bit\n        // tricky, but basically each element of the array\n        // is a key, on each iteration of reduce we return\n        // the object referenced by that key.\n        this._getAttrData = (data) => attr.split('.').reduce((a,v) => a[v], data);\n    }\n\n    static async create(binance, type, symbol, attr) {\n        const stream = new BinanceStream(binance, type, symbol, attr);\n        stream.stream = await binance.streams.openStream(\n            type,\n            {symbol: symbol},\n            (data) => {\n                stream.notifyObservers(\n                    'newData',\n                    data.E,\n                    Big(stream._getAttrData(data))\n                );\n            }\n        );\n        return stream;\n    }\n}\n\n/**\n * @access public\n */\nexport class BinanceStreamKlines extends BinanceStream {\n    constructor(binance, type, symbol, interval, attr) {\n        super(binance, type, symbol, attr);\n        this.interval = interval;\n    }\n\n    static async create(binance, symbol, interval, attr) {\n        const stream = new BinanceStreamKlines(\n            binance, BinanceStreams.klines, symbol, interval, attr\n        );\n        stream.stream = await binance.streams.openStream(\n            stream.type,\n            {symbol: symbol, interval: interval},\n            (data) => {\n                stream.notifyObservers(\n                    'newData',\n                    data.k.t,\n                    Big(stream._getAttrData(data))\n                );\n            }\n        );\n        return stream;\n    }\n\n    async getHistory(length) {\n        const history = new TimeSeriesData(this.interval);\n        const klines = await this.binance.apiCommand(\n            BinanceCommands.klines,\n            {\n                symbol:   this.symbol,\n                interval: this.interval,\n                limit:    length\n            }\n        );\n        let lastTime = 0;\n        for (const kline of klines) {\n            if (kline[0] < lastTime) throw 'Klines not oldest to newest.';\n            lastTime = kline[0];\n            const attrIndex = klinesStreamToRestMap.get(this.attr);\n            const data = Big(kline[attrIndex]);\n            history.addData(lastTime, data);\n        }\n\n        return history;\n    }\n}\n\n/**\n * @access public\n */\nexport class BinanceStreamTicker extends BinanceStream {\n    // eslint-disable-next-line no-unused-vars\n    getHistory(length) {\n        const history = new TimeSeriesData(this.interval);\n        // FIXME: TODO\n        throw 'Not implemented';\n        // eslint-disable-next-line no-unreachable\n        return history;\n    }\n}\n\n/**\n * @access private\n */\n// eslint-disable-next-line no-unused-vars\nconst tickerStreamToRestMap = new Map();\n\n/**\n * @access public\n */\nexport class BinanceStreamDepth extends BinanceStream {\n    // eslint-disable-next-line no-unused-vars\n    getHistory(length) {\n        const history = new TimeSeriesData(this.interval);\n        // FIXME: TODO\n        throw 'Not implemented';\n        // eslint-disable-next-line no-unreachable\n        return history;\n    }\n}\n\n/**\n * @access private\n */\n// eslint-disable-next-line no-unused-vars\nconst depthStreamToRestMap = new Map();\n\n\n",
+    "content": "import {BinanceCommands} from './binance.mjs';\nimport {ObservableMixin} from './observable';\nimport {TimeSeriesData} from './timeseries';\nimport {chartIntervalToMs} from './utils';\nimport {log} from './log';\n\nimport Big from 'big.js';\nimport WebSocket from 'ws';\n\n/**\n * @access Public\n */\nexport const BinanceStreams = {\n    // Binance docs indicate klines stream will update every second\n    // but it appears to only update when a trade occurs.\n    klines: {\n        name: 'klines',\n        streamName: '${symbol}@kline_${interval}',\n        reqParams: ['interval', 'symbol']\n    },\n    // Streams at 1Hz pretty consistently\n    ticker: {\n        name: 'ticker',\n        streamName: '${symbol}@ticker',\n        reqParams: ['symbol']\n    },\n    depth: {\n        name: 'depth',\n        streamName: '${symbol}@depth',\n        reqParams: ['symbol']\n    }\n};\n\n/**\n * Maintains WebSocket connections to the Binance stream API.\n * @access Public\n */\nexport class StreamManager extends ObservableMixin(Object) {\n    constructor() {\n        super();\n        this.base = 'wss://stream.binance.com:9443';\n        this.streams = new Map();\n        this.ws = null;\n        this.messageListener = null;\n    }\n\n    /**\n     * Open a stream.\n     * config is an object from BinanceStreams.\n     * messageListener is called each time data is received.\n     */\n    async openStream(config, params={}, messageListener) {\n        // FIXME: WSS connections will be disconnected after 24 hours. Need\n        //        to handle reconnection.\n        let paramsOk = true;\n        let missing = [];\n        for (const param of config.reqParams) {\n            if (!params.hasOwnProperty(param)) {\n                paramsOk = false;\n                missing.push(param);\n            }\n        }\n        if (!paramsOk) {\n            throw `${config.name} missing parameters: ${missing.join()}`;\n        }\n\n        // Binance api wants lower case coinpairs in URIs\n        params.symbol = params.symbol.toLowerCase();\n\n        // Replaces sections of streamName denoted with ${} with\n        // the value of the config parameter named within the curly\n        // braces.\n        const name = config.streamName.replace(/\\${([a-z]+)}/g,\n            (match) => params[match.slice(2,-1)]\n        );\n\n        let streamDefn = null;\n        if (this.streams.has(name)) {\n            streamDefn = this.streams.get(name);\n        } else {\n            streamDefn = {listeners: []};\n            this.streams.set(name, streamDefn);\n            await this._createCombinedStream();\n        }\n        streamDefn.listeners.push(messageListener);\n    }\n\n    _closeCombinedStream() {\n        if (this.messageListener) {\n            this.ws.removeEventListener(this.messageListener);\n            this.messageListener = null;\n        }\n        this.ws.close();\n    }\n\n    async _createCombinedStream() {\n        const addr =\n            `${this.base}/stream?streams=${[...this.streams.keys()].join('/')}`;\n\n        log.debug(`Opening WebSocket ${addr}`);\n\n        if (this.ws) {\n            log.debug('  Closing existing connection.');\n            this._closeCombinedStream();\n        }\n\n        return new Promise((resolve, reject) => {\n            const ws = new WebSocket(addr);\n            ws.onopen = () => {\n                log.debug('Stream created and ready.');\n                this.messageListener =\n                    ws.addEventListener('message', (message) => {\n                        const full = JSON.parse(message.data);\n                        const data = full.data;\n                        const stream = this.streams.get(full.stream);\n                        for (const listener of stream.listeners) {\n                            listener(data);\n                        }\n                    });\n                ws.on('close', (code, reason) => {\n                    log.debug(`WebSocket closed. ${reason} (${code}).`);\n                });\n                this.ws = ws;\n                resolve(ws);\n            };\n            ws.onerror = (err) => reject(err);\n        });\n    }\n}\n\n/**\n * @access private\n */\nconst klinesStreamToRestMap = new Map([['k.t', 0], ['k.o', 1], ['k.h', 2], ['k.l', 3], ['k.c', 4], ['k.v', 5], ['k.T', 6], ['k.q', 7], ['k.n', 8], ['k.V', 9], ['k.Q', 10]]);\n\n/**\n * @access public\n */\nclass BinanceStream extends ObservableMixin(Object) {\n    constructor(binance, type, symbol, attr) {\n        super();\n        this.binance = binance;\n        this.type = type;\n        this.symbol = symbol;\n        this.attr = attr;\n        this.stream = null;\n        // The required attribute is specified using dot notation.\n        // E.g. 'kline.close'.\n        // This code to extract that attribute from the dictionary is a bit\n        // tricky, but basically each element of the array\n        // is a key, on each iteration of reduce we return\n        // the object referenced by that key.\n        this._getAttrData = (data) => attr.split('.').reduce((a,v) => a[v], data);\n    }\n\n    static async create(binance, type, symbol, attr) {\n        const stream = new BinanceStream(binance, type, symbol, attr);\n        stream.stream = await binance.streams.openStream(\n            type,\n            {symbol: symbol},\n            (data) => {\n                stream.notifyObservers(\n                    'newData',\n                    data.E,\n                    Big(stream._getAttrData(data))\n                );\n            }\n        );\n        return stream;\n    }\n}\n\n/**\n * @access public\n */\nexport class BinanceStreamKlines extends BinanceStream {\n    constructor(binance, type, symbol, interval, attr) {\n        super(binance, type, symbol, attr);\n        this.interval = interval;\n    }\n\n    static async create(binance, symbol, interval, attr) {\n        const stream = new BinanceStreamKlines(\n            binance, BinanceStreams.klines, symbol, interval, attr\n        );\n        stream.stream = await binance.streams.openStream(\n            stream.type,\n            {symbol: symbol, interval: interval},\n            (data) => {\n                stream.notifyObservers(\n                    'newData',\n                    data.k.t,\n                    Big(stream._getAttrData(data))\n                );\n            }\n        );\n        return stream;\n    }\n\n    async getHistoryFromTo(startTime, endTime) {\n        const history = new TimeSeriesData(this.interval);\n        const intervalMs = chartIntervalToMs(this.interval);\n        const klines = await this.binance.apiCommand(\n            BinanceCommands.klines,\n            {\n                symbol:     this.symbol,\n                interval:   this.interval,\n                limit:      Math.ceil((endTime - startTime) / intervalMs),\n                // Ensure we get the kline that startTime falls within\n                startTime:  startTime - (startTime % chartIntervalToMs(this.interval)),\n                endTime:    endTime\n            }\n        );\n        let lastTime = 0;\n        for (const kline of klines) {\n            if (kline[0] < lastTime) throw 'Klines not oldest to newest.';\n            lastTime = kline[0];\n            const attrIndex = klinesStreamToRestMap.get(this.attr);\n            const data = Big(kline[attrIndex]);\n            history.addData(lastTime, data);\n        }\n\n        return history;\n    }\n\n    async getHistory(length) {\n        const history = new TimeSeriesData(this.interval);\n        const klines = await this.binance.apiCommand(\n            BinanceCommands.klines,\n            {\n                symbol:   this.symbol,\n                interval: this.interval,\n                limit:    length\n            }\n        );\n        let lastTime = 0;\n        for (const kline of klines) {\n            if (kline[0] < lastTime) throw 'Klines not oldest to newest.';\n            lastTime = kline[0];\n            const attrIndex = klinesStreamToRestMap.get(this.attr);\n            const data = Big(kline[attrIndex]);\n            history.addData(lastTime, data);\n        }\n\n        return history;\n    }\n}\n\n/**\n * @access public\n */\nexport class BinanceStreamTicker extends BinanceStream {\n    // eslint-disable-next-line no-unused-vars\n    getHistory(length) {\n        const history = new TimeSeriesData(this.interval);\n        // FIXME: TODO\n        throw 'Not implemented';\n        // eslint-disable-next-line no-unreachable\n        return history;\n    }\n}\n\n/**\n * @access private\n */\n// eslint-disable-next-line no-unused-vars\nconst tickerStreamToRestMap = new Map();\n\n/**\n * @access public\n */\nexport class BinanceStreamDepth extends BinanceStream {\n    // eslint-disable-next-line no-unused-vars\n    getHistory(length) {\n        const history = new TimeSeriesData(this.interval);\n        // FIXME: TODO\n        throw 'Not implemented';\n        // eslint-disable-next-line no-unreachable\n        return history;\n    }\n}\n\n/**\n * @access private\n */\n// eslint-disable-next-line no-unused-vars\nconst depthStreamToRestMap = new Map();\n\n\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/binancestream.mjs",
     "access": "public",
@@ -721,7 +721,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": "{BinanceStreams}",
     "description": "",
-    "lineNumber": 12,
+    "lineNumber": 13,
     "ignore": true,
     "type": {
       "types": [
@@ -741,7 +741,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": "{StreamManager}",
     "description": "Maintains WebSocket connections to the Binance stream API.",
-    "lineNumber": 37,
+    "lineNumber": 38,
     "interface": false,
     "expressionExtends": "ObservableMixin(Object)",
     "extends": [
@@ -761,7 +761,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": null,
     "description": "",
-    "lineNumber": 133,
+    "lineNumber": 134,
     "ignore": true,
     "type": {
       "types": [
@@ -781,7 +781,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": null,
     "description": "",
-    "lineNumber": 138,
+    "lineNumber": 139,
     "interface": false,
     "expressionExtends": "ObservableMixin(Object)",
     "extends": [
@@ -801,7 +801,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": "{BinanceStreamKlines}",
     "description": "",
-    "lineNumber": 175,
+    "lineNumber": 176,
     "interface": false,
     "extends": [
       "BinanceStream"
@@ -818,7 +818,7 @@
     "longname": "src/binancestream.mjs~BinanceStreamKlines#constructor",
     "access": "public",
     "description": null,
-    "lineNumber": 176,
+    "lineNumber": 177,
     "undocument": true
   },
   {
@@ -830,7 +830,7 @@
     "longname": "src/binancestream.mjs~BinanceStreamKlines#interval",
     "access": "public",
     "description": null,
-    "lineNumber": 178,
+    "lineNumber": 179,
     "undocument": true,
     "type": {
       "types": [
@@ -849,7 +849,7 @@
     "longname": "src/binancestream.mjs~BinanceStreamKlines.create",
     "access": "public",
     "description": null,
-    "lineNumber": 181,
+    "lineNumber": 182,
     "undocument": true,
     "params": [
       {
@@ -886,19 +886,25 @@
   {
     "__docId__": 43,
     "kind": "method",
-    "name": "getHistory",
+    "name": "getHistoryFromTo",
     "memberof": "src/binancestream.mjs~BinanceStreamKlines",
     "generator": false,
     "async": true,
     "static": false,
-    "longname": "src/binancestream.mjs~BinanceStreamKlines#getHistory",
+    "longname": "src/binancestream.mjs~BinanceStreamKlines#getHistoryFromTo",
     "access": "public",
     "description": null,
-    "lineNumber": 199,
+    "lineNumber": 200,
     "undocument": true,
     "params": [
       {
-        "name": "length",
+        "name": "startTime",
+        "types": [
+          "*"
+        ]
+      },
+      {
+        "name": "endTime",
         "types": [
           "*"
         ]
@@ -912,6 +918,33 @@
   },
   {
     "__docId__": 44,
+    "kind": "method",
+    "name": "getHistory",
+    "memberof": "src/binancestream.mjs~BinanceStreamKlines",
+    "generator": false,
+    "async": true,
+    "static": false,
+    "longname": "src/binancestream.mjs~BinanceStreamKlines#getHistory",
+    "access": "public",
+    "description": null,
+    "lineNumber": 226,
+    "undocument": true,
+    "params": [
+      {
+        "name": "length",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 45,
     "kind": "class",
     "name": "BinanceStreamTicker",
     "memberof": "src/binancestream.mjs",
@@ -922,14 +955,14 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": "{BinanceStreamTicker}",
     "description": "",
-    "lineNumber": 225,
+    "lineNumber": 252,
     "interface": false,
     "extends": [
       "BinanceStream"
     ]
   },
   {
-    "__docId__": 45,
+    "__docId__": 46,
     "kind": "method",
     "name": "getHistory",
     "memberof": "src/binancestream.mjs~BinanceStreamTicker",
@@ -939,7 +972,7 @@
     "longname": "src/binancestream.mjs~BinanceStreamTicker#getHistory",
     "access": "public",
     "description": null,
-    "lineNumber": 227,
+    "lineNumber": 254,
     "undocument": true,
     "params": [
       {
@@ -956,7 +989,7 @@
     }
   },
   {
-    "__docId__": 46,
+    "__docId__": 47,
     "kind": "variable",
     "name": "tickerStreamToRestMap",
     "memberof": "src/binancestream.mjs",
@@ -967,7 +1000,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": null,
     "description": "",
-    "lineNumber": 240,
+    "lineNumber": 267,
     "ignore": true,
     "type": {
       "types": [
@@ -976,7 +1009,7 @@
     }
   },
   {
-    "__docId__": 47,
+    "__docId__": 48,
     "kind": "class",
     "name": "BinanceStreamDepth",
     "memberof": "src/binancestream.mjs",
@@ -987,14 +1020,14 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": "{BinanceStreamDepth}",
     "description": "",
-    "lineNumber": 245,
+    "lineNumber": 272,
     "interface": false,
     "extends": [
       "BinanceStream"
     ]
   },
   {
-    "__docId__": 48,
+    "__docId__": 49,
     "kind": "method",
     "name": "getHistory",
     "memberof": "src/binancestream.mjs~BinanceStreamDepth",
@@ -1004,7 +1037,7 @@
     "longname": "src/binancestream.mjs~BinanceStreamDepth#getHistory",
     "access": "public",
     "description": null,
-    "lineNumber": 247,
+    "lineNumber": 274,
     "undocument": true,
     "params": [
       {
@@ -1021,7 +1054,7 @@
     }
   },
   {
-    "__docId__": 49,
+    "__docId__": 50,
     "kind": "variable",
     "name": "depthStreamToRestMap",
     "memberof": "src/binancestream.mjs",
@@ -1032,7 +1065,7 @@
     "importPath": "cryptotrader9000/src/binancestream.mjs",
     "importStyle": null,
     "description": "",
-    "lineNumber": 260,
+    "lineNumber": 287,
     "ignore": true,
     "type": {
       "types": [
@@ -1041,7 +1074,7 @@
     }
   },
   {
-    "__docId__": 50,
+    "__docId__": 51,
     "kind": "file",
     "name": "src/coin.mjs",
     "content": "import {log} from './log';\n\n/**\n * A representation of a coin and value held in that coin.\n * @access public\n */\nexport class Coin {\n    /**\n     * @param {string} name         The name of the coin.\n     * @param {number} initialFree  The initial amount of free, or available\n     *                              value of the coin.\n     * @param {number} initialLocked The initial amount of locked, or\n     *                              un-available value of the coin.\n     */\n    constructor(name, initialFree=0, initialLocked=0) {\n        this.name = name;\n        /**\n         * A quantity of this coin that is available for trading.\n         */\n        this.free = initialFree;\n        /**\n         * A quantity of this coin that is un-available for trading,\n         * usually because it is locked up in existing trades that are\n         * on the order book.\n         */\n        this.locked = initialLocked;\n    }\n}\n\n/**\n * A pair of coins that are traded against one another.\n * E.g. BTCETH (Bitcoin / Ethereum).\n * @access public\n */\nexport class CoinPair {\n    /**\n     * @param {string} base     The code representing the base coin.\n     * @param {string} quote    The code representing the coin which\n     *                          base is traded against.\n     * @param {object} info     The coin information obtained from Binance\n     *                          via BinanceCommands.exchangeInfo.\n     * @throws {Error}          If trading is disabled on the exchange.\n     */\n    constructor(base, quote, info) {\n        /**\n         * The symbol used to represent the coin pair.\n         */\n        this.symbol = `${base}${quote}`;\n\n        log.debug(info);\n\n        if (info.status != 'TRADING') throw `CoinPair ${this.symbol} not trading.`;\n\n        for (const filter of info.filters) {\n            switch (filter.filterType) {\n                case 'PRICE_FILTER':\n                    this.priceFilter = filter;\n                    break;\n                case 'LOT_SIZE':\n                    this.lotSizeFilter = filter;\n                    break;\n                case 'MIN_NOTIONAL':\n                    this.minNotionalFilter = filter;\n                    break;\n                default: throw `${base}${quote} contains unknown filter.`;\n            }\n        }\n    }\n}\n\n",
@@ -1052,7 +1085,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 51,
+    "__docId__": 52,
     "kind": "class",
     "name": "Coin",
     "memberof": "src/coin.mjs",
@@ -1067,7 +1100,7 @@
     "interface": false
   },
   {
-    "__docId__": 52,
+    "__docId__": 53,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/coin.mjs~Coin",
@@ -1112,7 +1145,7 @@
     ]
   },
   {
-    "__docId__": 53,
+    "__docId__": 54,
     "kind": "member",
     "name": "name",
     "memberof": "src/coin.mjs~Coin",
@@ -1129,7 +1162,7 @@
     }
   },
   {
-    "__docId__": 54,
+    "__docId__": 55,
     "kind": "member",
     "name": "free",
     "memberof": "src/coin.mjs~Coin",
@@ -1145,7 +1178,7 @@
     }
   },
   {
-    "__docId__": 55,
+    "__docId__": 56,
     "kind": "member",
     "name": "locked",
     "memberof": "src/coin.mjs~Coin",
@@ -1161,7 +1194,7 @@
     }
   },
   {
-    "__docId__": 56,
+    "__docId__": 57,
     "kind": "class",
     "name": "CoinPair",
     "memberof": "src/coin.mjs",
@@ -1176,7 +1209,7 @@
     "interface": false
   },
   {
-    "__docId__": 57,
+    "__docId__": 58,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/coin.mjs~CoinPair",
@@ -1229,7 +1262,7 @@
     ]
   },
   {
-    "__docId__": 58,
+    "__docId__": 59,
     "kind": "member",
     "name": "symbol",
     "memberof": "src/coin.mjs~CoinPair",
@@ -1245,7 +1278,7 @@
     }
   },
   {
-    "__docId__": 59,
+    "__docId__": 60,
     "kind": "member",
     "name": "priceFilter",
     "memberof": "src/coin.mjs~CoinPair",
@@ -1262,7 +1295,7 @@
     }
   },
   {
-    "__docId__": 60,
+    "__docId__": 61,
     "kind": "member",
     "name": "lotSizeFilter",
     "memberof": "src/coin.mjs~CoinPair",
@@ -1279,7 +1312,7 @@
     }
   },
   {
-    "__docId__": 61,
+    "__docId__": 62,
     "kind": "member",
     "name": "minNotionalFilter",
     "memberof": "src/coin.mjs~CoinPair",
@@ -1296,10 +1329,10 @@
     }
   },
   {
-    "__docId__": 62,
+    "__docId__": 63,
     "kind": "file",
     "name": "src/indicator.mjs",
-    "content": "import Big from 'big.js';\nimport {ObservableMixin} from './observable';\nimport {BinanceStreamKlines} from './binancestream.mjs';\nimport {TimeSeriesData} from './timeseries';\nimport {findCross, chartIntervalToMs} from './utils';\nimport {log} from './log';\n\nBig.DP = 8;\n\n// Will update based on ticker.\n// But will also need historical data.\nexport class Indicator extends ObservableMixin(Object) {\n    constructor(binance, coinPair) {\n        super();\n        this.binance = binance;\n        this.coinPair = coinPair;\n    }\n\n    getCurrent() {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class EMAIndicator extends Indicator {\n    constructor(binance, coinPair, nPeriods, interval) {\n        super(binance, coinPair);\n        this.nPeriods = nPeriods;\n        this.interval = interval;\n        this.intervalMs = chartIntervalToMs(this.interval);\n\n        this.source = null;\n        this.data = new TimeSeriesData(interval);\n    }\n\n    async init(getHistory=0) {\n        // Set up stream\n        this.stream = await BinanceStreamKlines.create(\n            this.binance,\n            this.coinPair.symbol,\n            this.interval,\n            'k.c'   // close price\n        );\n        // Get the history we will need to compute EMA.\n        // getHistory returns a TimeSeriesData which we will use from now on.\n        this.source = await this.stream.getHistory(Math.max(getHistory+1, 1));\n\n        log.debug(`EMAIndicator(${this.nPeriods}): Calculating history.`);\n        const currentTime = this.binance.getTimestamp();\n        for (\n            let time = currentTime - getHistory * this.intervalMs;\n            time < currentTime;\n            time += this.intervalMs\n        ) {\n            this._calculate(time);\n        }\n\n        // Feed stream data in the TimeSeriesData store\n        this.stream.addObserver('newData', this.source.addData, this.source);\n\n        this.source.addObserver('extended', (data,time) => this._calculate(time));\n        this.source.addObserver('replaceRecent', (data,time) => this._calculate(time));\n    }\n\n    static async createAndInit(binance, coinPair, nPeriods, interval, getHistory=0) {\n        log.info(`Creating EMAIndicator for ${coinPair.symbol} (${nPeriods}) ${interval}`);\n        const ema = new EMAIndicator(binance, coinPair, nPeriods, interval);\n        await ema.init(getHistory);\n        return ema;\n    }\n\n    _calculate(time = this.binance.getTimestamp()) {\n        const current = this.source.getAt(time);\n        if (current === undefined) throw new Error('Data missing.');\n        // Either last EMA if available or last close price\n        let last = this.data.getAt(time - this.intervalMs);\n        if (last === undefined) last = current;\n\n        // Weighting for most recent close price.\n        const multiplier = Big(2).div(this.nPeriods + 1);\n\n        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);\n        this.data.addData(time, ema);\n        this.notifyObservers('update', time, ema, current);\n        return ema;\n    }\n}\n\nexport class MultiEMAIndicator extends Indicator {\n    constructor(binance, coinPair, interval, lengths) {\n        super(binance, coinPair);\n        this.lengths = lengths;\n        this.lengths.sort((a,b) => b - a);\n        this.interval = interval;\n        this.emas = [];\n        this.orderedEmas = null;\n        this.data = new TimeSeriesData(interval);\n        this.currentTime = 0;\n        this.nUpdates = 0;\n        this.currentPrice = null;\n        this.slow = Math.max(...lengths);\n        this.fast = Math.min(...lengths);\n    }\n\n    async init() {\n        // When calculating historic values, start at 20 candles prior to the current.\n        const history = 20;\n\n        for (const length of this.lengths) {\n            const ema = await EMAIndicator.createAndInit(\n                this.binance,\n                this.coinPair,\n                length,\n                this.interval,\n                history\n            );\n            this.emas.push(ema);\n        }\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug('MultiEMA: Calculating historic values');\n        const currentTime = this.binance.getTimestamp();\n        const intervalMs = chartIntervalToMs(this.interval);\n        for (\n            let time = currentTime - history * intervalMs;\n            time < currentTime;\n            time += this.interval\n        ) {\n            this._update(time);\n        }\n\n        for (const ema of this.emas) {\n            // FIXME: Should this just be closed prices?\n            // eslint-disable-next-line no-unused-vars\n            ema.addObserver('update', (time, ema, price) => {\n                if (time > this.currentTime) {\n                    this.currentTime = time;\n                    this.nUpdates = 0;\n                }\n                this.currentPrice = price;\n                this.nUpdates ++;\n                if (this.nUpdates == this.lengths.length) {\n                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);\n                    this._update(time);\n                }\n            });\n        }\n    }\n\n    _update(time) {\n        const newOrder = [];\n\n        for (const ema of this.emas) newOrder.push(ema);\n\n        // Currently in visual order - when price increasing\n        // index 0 will be fastest EMA, when decreasing index 0 will be slowest.\n        // Highest price is index 0.\n        newOrder.sort((a,b) => {\n            const aPrice = a.data.getAt(time);\n            const bPrice = b.data.getAt(time);\n\n            if (aPrice === undefined || bPrice === undefined) {\n                throw new Error('MultiEMA: Price data missing.');\n            }\n\n            const priceCmp = bPrice.cmp(aPrice);\n            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;\n        });\n\n        if (this.orderedEmas === null) {\n            this.orderedEmas = newOrder;\n            return;\n        }\n\n        this.notifyObservers('update');\n\n        for (let i = 0; i < newOrder.length; i++) {\n            log.debug(\n                '  ', newOrder[i].nPeriods, 'was(', this.orderedEmas[i].nPeriods, ')',\n                ':', newOrder[i].data.getAt(time).toString()\n            );\n        }\n\n        const cross = findCross(\n            this.orderedEmas, newOrder, this.fast, this.slow, (a) => a.nPeriods\n        );\n        this.orderedEmas = newOrder;\n\n        const crossDebug = [];\n        for (const crossEma of cross.crossed) {\n            crossDebug.push(crossEma.nPeriods);\n        }\n        log.debug(cross.fastSlowCross, crossDebug);\n\n        if (cross.crossed.length == 0) return;\n\n        if (cross.fastSlowCross) {\n            // FIXME: Should we provide prices of emas?\n            // Current price might be even more useful.\n            this.notifyObservers('fastSlowCross', cross.crossed, time, this.currentPrice);\n            return;\n        }\n\n        this.notifyObservers('cross', cross.crossed, time, this.currentPrice);\n    }\n\n    static async createAndInit(binance, coinPair, interval, lengths) {\n        log.info(`Creating MultiEMAIndicator for ${coinPair.symbol} (${interval}) ${lengths}`);\n        const ind = new MultiEMAIndicator(binance, coinPair, interval, lengths);\n        await ind.init();\n        return ind;\n    }\n}\n",
+    "content": "import Big from 'big.js';\nimport {ObservableMixin} from './observable';\nimport {BinanceStreamKlines} from './binancestream.mjs';\nimport {TimeSeriesData} from './timeseries';\nimport {findCross, chartIntervalToMs, timeStr} from './utils';\nimport {log} from './log';\n\nBig.DP = 8;\n\nconst emaHistoryLength = 20;\n\n// Will update based on ticker.\n// But will also need historical data.\nexport class Indicator extends ObservableMixin(Object) {\n    constructor(binance, name, interval) {\n        super();\n        this.binance = binance;\n        this.name = name;\n        this.data = null;\n        this.interval = interval;\n        this.intervalMs = chartIntervalToMs(interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    prepHistory(startTime) {\n        throw new Error('Implement in sub-class.');\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAt(time) {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class PriceIndicator extends Indicator {\n    constructor(binance, name, coinPair, interval) {\n        super(binance, name, interval);\n        this.coinPair = coinPair;\n        this.data = null;\n        this._stream = null;\n    }\n\n    async init() {\n        // Set up stream\n        this.stream = await BinanceStreamKlines.create(\n            this.binance,\n            this.coinPair.symbol,\n            this.interval,\n            'k.c'   // close price\n        );\n\n        this.data = new TimeSeriesData(this.interval);\n\n        // Feed stream data into the TimeSeriesData store\n        this.stream.addObserver('newData', (time, data) => {\n            this.data.addData(time, data);\n            this.notifyObservers('update', time, data);\n        });\n    }\n\n    static async createAndInit(binance, name, coinPair, interval) {\n        log.info(`Creating PriceIndicator for ${name} ${interval}`);\n        const ind = new PriceIndicator(binance, name, coinPair, interval);\n        await ind.init();\n        return ind;\n    }\n\n    async prepHistory(startTime) {\n        // Access pattern is to generally use all data following a sample\n        // so load everything from startTime onwards.\n        const endTime = this.data.hasData ? this.data.firstTime : this.binance.getTimestamp();\n        if (endTime  < startTime) return;\n        const history = await this.stream.getHistoryFromTo(startTime, endTime);\n        log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);\n        this.data.merge(history);\n    }\n\n    getAt(time) {\n        const data = this.data.getAt(time);\n        if (data == undefined) {\n            log.debug(\n                `PriceIndicator ${this.name}. No data for ${timeStr(time)}`+\n                ` ${timeStr(this.data.firstData)}`\n            );\n        }\n        return this.data.getAt(time);\n    }\n}\n\nexport class EMAIndicator extends Indicator {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {Indicator}       source      The data source that an EMA\n     *                                      is calculated for.\n     * @param {number}          nPeriods    The number of periods over which to\n     *                                      calculate the EMA.\n     */\n    constructor(binance, name, source, nPeriods) {\n        super(binance, name, source.interval);\n        this.nPeriods = nPeriods;\n        this.source = source;\n        this.data = new TimeSeriesData(this.interval, (time) => {\n            const whichEma = `EMAIndicator(${this.nPeriods})`;\n            log.debug(`${whichEma}: Calculating history for ${timeStr(time)}.`);\n            this._calculate(time);\n        });\n    }\n\n    async init() {\n        const currentTime = this.binance.getTimestamp();\n        const historyStart = currentTime - emaHistoryLength * this.intervalMs;\n        await this.prepHistory(historyStart);\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug(`EMAIndicator ${this.name}: Calculating historic values`);\n        for (let time = historyStart; time < currentTime; time += this.intervalMs) {\n            this._calculate(time);\n        }\n\n        // eslint-disable-next-line no-unused-vars\n        this.source.addObserver('update', (time, data) => this._calculate(time));\n    }\n\n    static async createAndInit(binance, name, source, nPeriods) {\n        log.info(`Creating EMAIndicator for ${name} (${nPeriods}) ${source.interval}`);\n        const ema = new EMAIndicator(binance, name, source, nPeriods);\n        await ema.init();\n        return ema;\n    }\n\n    _calculate(time = this.binance.getTimestamp()) {\n        const current = this.source.getAt(time);\n        if (current === undefined) {\n            throw new Error('Data missing.');\n        }\n        // Either last EMA if available or last close price\n        let last = this.data.getAt(time - this.intervalMs);\n        if (last === undefined) last = current;\n\n        // Weighting for most recent close price.\n        const multiplier = Big(2).div(this.nPeriods + 1);\n\n        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);\n        this.data.addData(time, ema);\n        this.notifyObservers('update', time, ema, current);\n        return ema;\n    }\n\n    async prepHistory(startTime) {\n        await this.source.prepHistory(startTime);\n        log.info(`EMAIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);\n        for (let time = startTime; time < this.data.firstTime; time += this.intervalMs) {\n            this._calculate(time);\n        }\n    }\n\n    getAt(time) {\n        return this.data.getAt(time);\n    }\n}\n\nexport class MultiIndicator extends Indicator {\n    constructor(binance, name, interval) {\n        super(binance, name, interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAll(time) {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class MultiEMAIndicator extends Indicator {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {Indicator}       emaSource   The source of data for calculating\n     *                                      each EMA in the set.\n     * @param {Array}           lengths     An array containing the period for\n     *                                      each EMA in the set.\n     *                                      The number of values in this array\n     *                                      indicates how many EMAIndicators\n     *                                      are included in the set.\n     */\n    constructor(binance, name, emaSource, lengths) {\n        super(binance, name, emaSource.interval);\n        this._emaSource = emaSource;\n        this.lengths = lengths;\n        this.lengths.sort((a,b) => b - a);\n        this.emas = [];\n        this.orderedEmas = null;\n        this.currentTime = 0;\n        this.nUpdates = 0;\n        this.currentPrice = null;\n        this.slow = Math.max(...lengths);\n        this.fast = Math.min(...lengths);\n    }\n\n    async init() {\n        const currentTime = this.binance.getTimestamp();\n        const historyStart = currentTime - emaHistoryLength * this.intervalMs;\n\n        for (const length of this.lengths) {\n            const ema = await EMAIndicator.createAndInit(\n                this.binance,\n                `${this.name} EMA(${length})`,\n                this._emaSource,\n                length,\n            );\n            await ema.prepHistory(historyStart);\n            this.emas.push(ema);\n        }\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug('MultiEMA: Calculating historic values');\n        for (\n            let time = historyStart;\n            time < currentTime;\n            time += this.intervalMs\n        ) {\n            this._update(time);\n        }\n\n        for (const ema of this.emas) {\n            // FIXME: Should this just be closed prices?\n            // eslint-disable-next-line no-unused-vars\n            ema.addObserver('update', (time, ema, price) => {\n                if (time > this.currentTime) {\n                    this.currentTime = time;\n                    this.nUpdates = 0;\n                }\n                this.currentPrice = price;\n                this.nUpdates ++;\n                if (this.nUpdates == this.lengths.length) {\n                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);\n                    this._update(time);\n                }\n            });\n        }\n    }\n\n    _update(time) {\n        const newOrder = [];\n\n        for (const ema of this.emas) newOrder.push(ema);\n\n        // Currently in visual order - when price increasing\n        // index 0 will be fastest EMA, when decreasing index 0 will be slowest.\n        // Highest price is index 0.\n        newOrder.sort((a,b) => {\n            const aPrice = a.data.getAt(time);\n            const bPrice = b.data.getAt(time);\n\n            if (aPrice === undefined || bPrice === undefined) {\n                throw new Error('MultiEMA: Price data missing.');\n            }\n\n            const priceCmp = bPrice.cmp(aPrice);\n            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;\n        });\n\n        if (this.orderedEmas === null) {\n            this.orderedEmas = newOrder;\n            return;\n        }\n\n        this.notifyObservers('update');\n\n        const cross = findCross(\n            this.orderedEmas, newOrder, this.fast, this.slow, (a) => a.nPeriods\n        );\n        this.orderedEmas = newOrder;\n\n        if (cross.crossed.length == 0) return;\n\n        if (cross.fastSlowCross) {\n            // FIXME: Should we provide prices of emas?\n            // Current price might be even more useful.\n            this.notifyObservers('fastSlowCross', cross.crossed, time, this.currentPrice);\n            return;\n        }\n\n        this.notifyObservers('cross', cross.crossed, time, this.currentPrice);\n    }\n\n    static async createAndInit(binance, name, emaSource, lengths) {\n        log.info(`Creating MultiEMAIndicator ${name} (${emaSource.interval}) ${lengths}`);\n        const ind = new MultiEMAIndicator(binance, name, emaSource, lengths);\n        await ind.init();\n        return ind;\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAt(time) {\n        // FIXME: What would be a useful single value to return here?\n    }\n\n    getAll(time) {\n        const results = [];\n        for (const ema of this.emas) {\n            results.push(ema.getAt(time));\n        }\n        return results;\n    }\n}\n\n//export class MACDIndicator extends Indicator {\n//    constructor(binance, coinPair, interval) {\n//        super(binance);\n//        this.interval = interval;\n//        this._emas = [];\n//        this._macdData = new TimeSeriesData(interval);\n//        this._signalData = new TimeSeriesData(interval);\n//    }\n//\n//    async init() {\n//        const history = 20;\n//\n//        this._emas.push(\n//            await EMAIndicator.createAndInit(\n//                this.binance,\n//                this.coinPair,\n//                12,\n//                this.interval,\n//                history\n//            ),\n//            await EMAIndicator.createAndInit(\n//                this.binance,\n//                this.coinPair,\n//                26,\n//                this.interval,\n//                history\n//            )\n//        );\n//    }\n//}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/indicator.mjs",
     "access": "public",
@@ -1307,7 +1340,28 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 63,
+    "__docId__": 64,
+    "kind": "variable",
+    "name": "emaHistoryLength",
+    "memberof": "src/indicator.mjs",
+    "static": true,
+    "longname": "src/indicator.mjs~emaHistoryLength",
+    "access": "public",
+    "export": false,
+    "importPath": "cryptotrader9000/src/indicator.mjs",
+    "importStyle": null,
+    "description": null,
+    "lineNumber": 10,
+    "undocument": true,
+    "type": {
+      "types": [
+        "number"
+      ]
+    },
+    "ignore": true
+  },
+  {
+    "__docId__": 65,
     "kind": "class",
     "name": "Indicator",
     "memberof": "src/indicator.mjs",
@@ -1318,7 +1372,7 @@
     "importPath": "cryptotrader9000/src/indicator.mjs",
     "importStyle": "{Indicator}",
     "description": null,
-    "lineNumber": 12,
+    "lineNumber": 14,
     "undocument": true,
     "interface": false,
     "expressionExtends": "ObservableMixin(Object)",
@@ -1327,18 +1381,18 @@
     ]
   },
   {
-    "__docId__": 64,
+    "__docId__": 66,
     "kind": "class",
-    "name": "EMAIndicator",
+    "name": "PriceIndicator",
     "memberof": "src/indicator.mjs",
     "static": true,
-    "longname": "src/indicator.mjs~EMAIndicator",
+    "longname": "src/indicator.mjs~PriceIndicator",
     "access": "public",
     "export": true,
     "importPath": "cryptotrader9000/src/indicator.mjs",
-    "importStyle": "{EMAIndicator}",
+    "importStyle": "{PriceIndicator}",
     "description": null,
-    "lineNumber": 24,
+    "lineNumber": 35,
     "undocument": true,
     "interface": false,
     "extends": [
@@ -1346,63 +1400,29 @@
     ]
   },
   {
-    "__docId__": 65,
+    "__docId__": 67,
     "kind": "constructor",
     "name": "constructor",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#constructor",
+    "longname": "src/indicator.mjs~PriceIndicator#constructor",
     "access": "public",
     "description": null,
-    "lineNumber": 25,
+    "lineNumber": 36,
     "undocument": true
-  },
-  {
-    "__docId__": 66,
-    "kind": "member",
-    "name": "nPeriods",
-    "memberof": "src/indicator.mjs~EMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#nPeriods",
-    "access": "public",
-    "description": null,
-    "lineNumber": 27,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 67,
-    "kind": "member",
-    "name": "interval",
-    "memberof": "src/indicator.mjs~EMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#interval",
-    "access": "public",
-    "description": null,
-    "lineNumber": 28,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
   },
   {
     "__docId__": 68,
     "kind": "member",
-    "name": "intervalMs",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "name": "coinPair",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#intervalMs",
+    "longname": "src/indicator.mjs~PriceIndicator#coinPair",
     "access": "public",
     "description": null,
-    "lineNumber": 29,
+    "lineNumber": 38,
     "undocument": true,
     "type": {
       "types": [
@@ -1413,13 +1433,13 @@
   {
     "__docId__": 69,
     "kind": "member",
-    "name": "source",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "name": "data",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#source",
+    "longname": "src/indicator.mjs~PriceIndicator#data",
     "access": "public",
     "description": null,
-    "lineNumber": 31,
+    "lineNumber": 39,
     "undocument": true,
     "type": {
       "types": [
@@ -1430,14 +1450,15 @@
   {
     "__docId__": 70,
     "kind": "member",
-    "name": "data",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "name": "_stream",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#data",
-    "access": "public",
+    "longname": "src/indicator.mjs~PriceIndicator#_stream",
+    "access": "private",
     "description": null,
-    "lineNumber": 32,
+    "lineNumber": 40,
     "undocument": true,
+    "ignore": true,
     "type": {
       "types": [
         "*"
@@ -1448,38 +1469,28 @@
     "__docId__": 71,
     "kind": "method",
     "name": "init",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "generator": false,
     "async": true,
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#init",
+    "longname": "src/indicator.mjs~PriceIndicator#init",
     "access": "public",
     "description": null,
-    "lineNumber": 35,
+    "lineNumber": 43,
     "undocument": true,
-    "params": [
-      {
-        "name": "getHistory",
-        "optional": true,
-        "types": [
-          "number"
-        ],
-        "defaultRaw": 0,
-        "defaultValue": "0"
-      }
-    ],
+    "params": [],
     "return": null
   },
   {
     "__docId__": 72,
     "kind": "member",
     "name": "stream",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#stream",
+    "longname": "src/indicator.mjs~PriceIndicator#stream",
     "access": "public",
     "description": null,
-    "lineNumber": 37,
+    "lineNumber": 45,
     "undocument": true,
     "type": {
       "types": [
@@ -1491,18 +1502,24 @@
     "__docId__": 74,
     "kind": "method",
     "name": "createAndInit",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "generator": false,
     "async": true,
     "static": true,
-    "longname": "src/indicator.mjs~EMAIndicator.createAndInit",
+    "longname": "src/indicator.mjs~PriceIndicator.createAndInit",
     "access": "public",
     "description": null,
-    "lineNumber": 64,
+    "lineNumber": 61,
     "undocument": true,
     "params": [
       {
         "name": "binance",
+        "types": [
+          "*"
+        ]
+      },
+      {
+        "name": "name",
         "types": [
           "*"
         ]
@@ -1514,25 +1531,10 @@
         ]
       },
       {
-        "name": "nPeriods",
-        "types": [
-          "*"
-        ]
-      },
-      {
         "name": "interval",
         "types": [
           "*"
         ]
-      },
-      {
-        "name": "getHistory",
-        "optional": true,
-        "types": [
-          "number"
-        ],
-        "defaultRaw": 0,
-        "defaultValue": "0"
       }
     ],
     "return": {
@@ -1544,21 +1546,42 @@
   {
     "__docId__": 75,
     "kind": "method",
-    "name": "_calculate",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "name": "prepHistory",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "generator": false,
+    "async": true,
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#prepHistory",
+    "access": "public",
+    "description": null,
+    "lineNumber": 68,
+    "undocument": true,
+    "params": [
+      {
+        "name": "startTime",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 76,
+    "kind": "method",
+    "name": "getAt",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#_calculate",
-    "access": "private",
+    "longname": "src/indicator.mjs~PriceIndicator#getAt",
+    "access": "public",
     "description": null,
-    "lineNumber": 71,
+    "lineNumber": 78,
     "undocument": true,
-    "ignore": true,
     "params": [
       {
         "name": "time",
-        "optional": true,
         "types": [
           "*"
         ]
@@ -1571,18 +1594,18 @@
     }
   },
   {
-    "__docId__": 76,
+    "__docId__": 77,
     "kind": "class",
-    "name": "MultiEMAIndicator",
+    "name": "EMAIndicator",
     "memberof": "src/indicator.mjs",
     "static": true,
-    "longname": "src/indicator.mjs~MultiEMAIndicator",
+    "longname": "src/indicator.mjs~EMAIndicator",
     "access": "public",
     "export": true,
     "importPath": "cryptotrader9000/src/indicator.mjs",
-    "importStyle": "{MultiEMAIndicator}",
+    "importStyle": "{EMAIndicator}",
     "description": null,
-    "lineNumber": 88,
+    "lineNumber": 90,
     "undocument": true,
     "interface": false,
     "extends": [
@@ -1590,162 +1613,57 @@
     ]
   },
   {
-    "__docId__": 77,
+    "__docId__": 78,
     "kind": "constructor",
     "name": "constructor",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "memberof": "src/indicator.mjs~EMAIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#constructor",
+    "longname": "src/indicator.mjs~EMAIndicator#constructor",
     "access": "public",
-    "description": null,
-    "lineNumber": 89,
-    "undocument": true
-  },
-  {
-    "__docId__": 78,
-    "kind": "member",
-    "name": "lengths",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#lengths",
-    "access": "public",
-    "description": null,
-    "lineNumber": 91,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
+    "description": "",
+    "lineNumber": 98,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "binance",
+        "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Indicator"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "source",
+        "description": "The data source that an EMA\n                                     is calculated for."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "nPeriods",
+        "description": "The number of periods over which to\n                                     calculate the EMA."
+      }
+    ]
   },
   {
     "__docId__": 79,
     "kind": "member",
-    "name": "interval",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "name": "nPeriods",
+    "memberof": "src/indicator.mjs~EMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#interval",
-    "access": "public",
-    "description": null,
-    "lineNumber": 93,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 80,
-    "kind": "member",
-    "name": "emas",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#emas",
-    "access": "public",
-    "description": null,
-    "lineNumber": 94,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*[]"
-      ]
-    }
-  },
-  {
-    "__docId__": 81,
-    "kind": "member",
-    "name": "orderedEmas",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#orderedEmas",
-    "access": "public",
-    "description": null,
-    "lineNumber": 95,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 82,
-    "kind": "member",
-    "name": "data",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#data",
-    "access": "public",
-    "description": null,
-    "lineNumber": 96,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 83,
-    "kind": "member",
-    "name": "currentTime",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#currentTime",
-    "access": "public",
-    "description": null,
-    "lineNumber": 97,
-    "undocument": true,
-    "type": {
-      "types": [
-        "number"
-      ]
-    }
-  },
-  {
-    "__docId__": 84,
-    "kind": "member",
-    "name": "nUpdates",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#nUpdates",
-    "access": "public",
-    "description": null,
-    "lineNumber": 98,
-    "undocument": true,
-    "type": {
-      "types": [
-        "number"
-      ]
-    }
-  },
-  {
-    "__docId__": 85,
-    "kind": "member",
-    "name": "currentPrice",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#currentPrice",
-    "access": "public",
-    "description": null,
-    "lineNumber": 99,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 86,
-    "kind": "member",
-    "name": "slow",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#slow",
+    "longname": "src/indicator.mjs~EMAIndicator#nPeriods",
     "access": "public",
     "description": null,
     "lineNumber": 100,
@@ -1757,12 +1675,12 @@
     }
   },
   {
-    "__docId__": 87,
+    "__docId__": 80,
     "kind": "member",
-    "name": "fast",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "name": "source",
+    "memberof": "src/indicator.mjs~EMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#fast",
+    "longname": "src/indicator.mjs~EMAIndicator#source",
     "access": "public",
     "description": null,
     "lineNumber": 101,
@@ -1774,7 +1692,438 @@
     }
   },
   {
+    "__docId__": 81,
+    "kind": "member",
+    "name": "data",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#data",
+    "access": "public",
+    "description": null,
+    "lineNumber": 102,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 82,
+    "kind": "method",
+    "name": "init",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "generator": false,
+    "async": true,
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#init",
+    "access": "public",
+    "description": null,
+    "lineNumber": 109,
+    "undocument": true,
+    "params": [],
+    "return": null
+  },
+  {
+    "__docId__": 83,
+    "kind": "method",
+    "name": "createAndInit",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "generator": false,
+    "async": true,
+    "static": true,
+    "longname": "src/indicator.mjs~EMAIndicator.createAndInit",
+    "access": "public",
+    "description": null,
+    "lineNumber": 124,
+    "undocument": true,
+    "params": [
+      {
+        "name": "binance",
+        "types": [
+          "*"
+        ]
+      },
+      {
+        "name": "name",
+        "types": [
+          "*"
+        ]
+      },
+      {
+        "name": "source",
+        "types": [
+          "*"
+        ]
+      },
+      {
+        "name": "nPeriods",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 84,
+    "kind": "method",
+    "name": "_calculate",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#_calculate",
+    "access": "private",
+    "description": null,
+    "lineNumber": 131,
+    "undocument": true,
+    "ignore": true,
+    "params": [
+      {
+        "name": "time",
+        "optional": true,
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 85,
+    "kind": "method",
+    "name": "prepHistory",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "generator": false,
+    "async": true,
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#prepHistory",
+    "access": "public",
+    "description": null,
+    "lineNumber": 149,
+    "undocument": true,
+    "params": [
+      {
+        "name": "startTime",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 86,
+    "kind": "method",
+    "name": "getAt",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#getAt",
+    "access": "public",
+    "description": null,
+    "lineNumber": 157,
+    "undocument": true,
+    "params": [
+      {
+        "name": "time",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 87,
+    "kind": "class",
+    "name": "MultiIndicator",
+    "memberof": "src/indicator.mjs",
+    "static": true,
+    "longname": "src/indicator.mjs~MultiIndicator",
+    "access": "public",
+    "export": true,
+    "importPath": "cryptotrader9000/src/indicator.mjs",
+    "importStyle": "{MultiIndicator}",
+    "description": null,
+    "lineNumber": 162,
+    "undocument": true,
+    "interface": false,
+    "extends": [
+      "Indicator"
+    ]
+  },
+  {
     "__docId__": 88,
+    "kind": "constructor",
+    "name": "constructor",
+    "memberof": "src/indicator.mjs~MultiIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiIndicator#constructor",
+    "access": "public",
+    "description": null,
+    "lineNumber": 163,
+    "undocument": true
+  },
+  {
+    "__docId__": 89,
+    "kind": "method",
+    "name": "getAll",
+    "memberof": "src/indicator.mjs~MultiIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiIndicator#getAll",
+    "access": "public",
+    "description": null,
+    "lineNumber": 168,
+    "undocument": true,
+    "params": [
+      {
+        "name": "time",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 90,
+    "kind": "class",
+    "name": "MultiEMAIndicator",
+    "memberof": "src/indicator.mjs",
+    "static": true,
+    "longname": "src/indicator.mjs~MultiEMAIndicator",
+    "access": "public",
+    "export": true,
+    "importPath": "cryptotrader9000/src/indicator.mjs",
+    "importStyle": "{MultiEMAIndicator}",
+    "description": null,
+    "lineNumber": 173,
+    "undocument": true,
+    "interface": false,
+    "extends": [
+      "Indicator"
+    ]
+  },
+  {
+    "__docId__": 91,
+    "kind": "constructor",
+    "name": "constructor",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#constructor",
+    "access": "public",
+    "description": "",
+    "lineNumber": 184,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "binance",
+        "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Indicator"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "emaSource",
+        "description": "The source of data for calculating\n                                     each EMA in the set."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Array"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "lengths",
+        "description": "An array containing the period for\n                                     each EMA in the set.\n                                     The number of values in this array\n                                     indicates how many EMAIndicators\n                                     are included in the set."
+      }
+    ]
+  },
+  {
+    "__docId__": 92,
+    "kind": "member",
+    "name": "_emaSource",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#_emaSource",
+    "access": "private",
+    "description": null,
+    "lineNumber": 186,
+    "undocument": true,
+    "ignore": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 93,
+    "kind": "member",
+    "name": "lengths",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#lengths",
+    "access": "public",
+    "description": null,
+    "lineNumber": 187,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 94,
+    "kind": "member",
+    "name": "emas",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#emas",
+    "access": "public",
+    "description": null,
+    "lineNumber": 189,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 95,
+    "kind": "member",
+    "name": "orderedEmas",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#orderedEmas",
+    "access": "public",
+    "description": null,
+    "lineNumber": 190,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 96,
+    "kind": "member",
+    "name": "currentTime",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#currentTime",
+    "access": "public",
+    "description": null,
+    "lineNumber": 191,
+    "undocument": true,
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 97,
+    "kind": "member",
+    "name": "nUpdates",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#nUpdates",
+    "access": "public",
+    "description": null,
+    "lineNumber": 192,
+    "undocument": true,
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 98,
+    "kind": "member",
+    "name": "currentPrice",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#currentPrice",
+    "access": "public",
+    "description": null,
+    "lineNumber": 193,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 99,
+    "kind": "member",
+    "name": "slow",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#slow",
+    "access": "public",
+    "description": null,
+    "lineNumber": 194,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 100,
+    "kind": "member",
+    "name": "fast",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#fast",
+    "access": "public",
+    "description": null,
+    "lineNumber": 195,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 101,
     "kind": "method",
     "name": "init",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1784,13 +2133,13 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#init",
     "access": "public",
     "description": null,
-    "lineNumber": 104,
+    "lineNumber": 198,
     "undocument": true,
     "params": [],
     "return": null
   },
   {
-    "__docId__": 92,
+    "__docId__": 105,
     "kind": "method",
     "name": "_update",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1800,7 +2149,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#_update",
     "access": "private",
     "description": null,
-    "lineNumber": 149,
+    "lineNumber": 241,
     "undocument": true,
     "ignore": true,
     "params": [
@@ -1814,7 +2163,7 @@
     "return": null
   },
   {
-    "__docId__": 95,
+    "__docId__": 108,
     "kind": "method",
     "name": "createAndInit",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1824,7 +2173,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator.createAndInit",
     "access": "public",
     "description": null,
-    "lineNumber": 206,
+    "lineNumber": 285,
     "undocument": true,
     "params": [
       {
@@ -1834,13 +2183,13 @@
         ]
       },
       {
-        "name": "coinPair",
+        "name": "name",
         "types": [
           "*"
         ]
       },
       {
-        "name": "interval",
+        "name": "emaSource",
         "types": [
           "*"
         ]
@@ -1859,7 +2208,57 @@
     }
   },
   {
-    "__docId__": 96,
+    "__docId__": 109,
+    "kind": "method",
+    "name": "getAt",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#getAt",
+    "access": "public",
+    "description": null,
+    "lineNumber": 293,
+    "undocument": true,
+    "params": [
+      {
+        "name": "time",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 110,
+    "kind": "method",
+    "name": "getAll",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#getAll",
+    "access": "public",
+    "description": null,
+    "lineNumber": 297,
+    "undocument": true,
+    "params": [
+      {
+        "name": "time",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 111,
     "kind": "file",
     "name": "src/log.mjs",
     "content": "import {TelegramBot} from './telegram.mjs';\n\nconst Console = console;\n\n/**\n * Options for differing verbosity of log output.\n * @package\n */\nexport const LogLevelType = {\n    none:   0,\n    error:  1,\n    notify: 2,\n    info:   4,\n    debug:  8\n};\n\n/**\n * @protected\n */\nclass Log {\n    /**\n     * Create a logger.\n     * If TELEGRAM_KEY and TELEGRAM_CHANNEL environment variables are set,\n     * then a Telegram bot will be instantiated for output for some log\n     * verbosity levels.\n     */\n    constructor() {\n        /**\n         * Set to a value from {@link LogLevelType} to set the verbosity of output.\n         */\n        this.level = LogLevelType.debug;\n\n        if (process.env.TELEGRAM_KEY !== undefined\n            &&\n            process.env.TELEGRAM_CHANNEL !== undefined\n        ) {\n            this.telegram = new TelegramBot(\n                process.env.TELEGRAM_KEY,\n                process.env.TELEGRAM_CHANNEL,\n                process.env.NET_REQUEST_TIMEOUT || 3000\n            );\n        }\n    }\n\n    /**\n     * Output information about an error.\n     * Will write to the Telegram bot if configured.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    error(...args) {\n        if (this.level < LogLevelType.error) return;\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    /**\n     * Output notification information. Notifications are considered to be\n     * of higher importance than informative output.\n     * Will write to the Telegram bot if configured.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    notify(...args) {\n        if (this.level < LogLevelType.notify) return;\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    /**\n     * Output an informative message. Considered to be less important than\n     * notifications.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    info(...args) {\n        if (this.level < LogLevelType.info) return;\n        Console.log(...args);\n    }\n\n    /**\n     * Output debug information.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    debug(...args) {\n        if (this.level < LogLevelType.debug) return;\n        Console.log(...args);\n    }\n}\n\n/**\n * An instance of the Log for use within the package.\n * @package\n */\nexport const log = new Log();\n\n\n",
@@ -1870,7 +2269,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 97,
+    "__docId__": 112,
     "kind": "variable",
     "name": "Console",
     "memberof": "src/log.mjs",
@@ -1891,7 +2290,7 @@
     "ignore": true
   },
   {
-    "__docId__": 98,
+    "__docId__": 113,
     "kind": "variable",
     "name": "LogLevelType",
     "memberof": "src/log.mjs",
@@ -1911,7 +2310,7 @@
     }
   },
   {
-    "__docId__": 99,
+    "__docId__": 114,
     "kind": "variable",
     "name": "log",
     "memberof": "src/log.mjs",
@@ -1931,7 +2330,7 @@
     }
   },
   {
-    "__docId__": 100,
+    "__docId__": 115,
     "kind": "class",
     "name": "Log",
     "memberof": "src/log.mjs",
@@ -1948,7 +2347,7 @@
     "ignore": true
   },
   {
-    "__docId__": 101,
+    "__docId__": 116,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/log.mjs~Log",
@@ -1961,7 +2360,7 @@
     "lineNumber": 27
   },
   {
-    "__docId__": 102,
+    "__docId__": 117,
     "kind": "member",
     "name": "level",
     "memberof": "src/log.mjs~Log",
@@ -1977,7 +2376,7 @@
     }
   },
   {
-    "__docId__": 103,
+    "__docId__": 118,
     "kind": "member",
     "name": "telegram",
     "memberof": "src/log.mjs~Log",
@@ -1994,7 +2393,7 @@
     }
   },
   {
-    "__docId__": 104,
+    "__docId__": 119,
     "kind": "method",
     "name": "error",
     "memberof": "src/log.mjs~Log",
@@ -2020,7 +2419,7 @@
     "return": null
   },
   {
-    "__docId__": 105,
+    "__docId__": 120,
     "kind": "method",
     "name": "notify",
     "memberof": "src/log.mjs~Log",
@@ -2046,7 +2445,7 @@
     "return": null
   },
   {
-    "__docId__": 106,
+    "__docId__": 121,
     "kind": "method",
     "name": "info",
     "memberof": "src/log.mjs~Log",
@@ -2072,7 +2471,7 @@
     "return": null
   },
   {
-    "__docId__": 107,
+    "__docId__": 122,
     "kind": "method",
     "name": "debug",
     "memberof": "src/log.mjs~Log",
@@ -2098,10 +2497,10 @@
     "return": null
   },
   {
-    "__docId__": 108,
+    "__docId__": 123,
     "kind": "file",
     "name": "src/main.mjs",
-    "content": "import {BinanceAccess} from './binance.mjs';\nimport {MultiEMAIndicator} from './indicator.mjs';\nimport {log, LogLevelType} from './log';\n\nimport Big from 'big.js';\n\n(async function main() {\n    log.info('Initialising exchange access');\n    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);\n    await binance.init();\n    log.info('  Binance access initialised.');\n\n    log.level = LogLevelType.info;\n\n    await binance.loadAccount(\n        process.env.BINANCEACCOUNT_NAME,\n        process.env.BINANCEACCOUNT_KEY,\n        process.env.BINANCEACCOUNT_SECRET\n    );\n\n    const nulsbtc = binance.getCoinPair('NULS','BTC');\n    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, '5m', [21, 13, 8]);\n\n    log.notify(`Bot online. Tracking ${multiEma.coinPair.symbol} ${multiEma.interval}.`);\n\n    let buyAt = null;\n    let cumulative = new Big(0);\n\n    // Possibly the world's simplest trading strategy.\n    // Buy when The fast and slow EMA cross and sell when they cross again.\n    multiEma.addObserver('fastSlowCross', (crossed, time, price) => {\n        const message = [];\n        const signal =\n            crossed.findIndex((e) => e.nPeriods == multiEma.slow)\n            <\n            crossed.findIndex((e) => e.nPeriods == multiEma.fast)\n                ? 'sell' : 'buy';\n        message.push(\n            multiEma.coinPair.symbol, multiEma.interval,\n            'Fast and slow EMA cross.',\n            `Signal: ${signal}.`,\n            `Price: ${price.toString()}.`\n        );\n        if (signal == 'buy') {\n            buyAt = price;\n        } else if (buyAt != null) {\n            const diff = price.sub(buyAt);\n            cumulative = cumulative.plus(diff);\n            message.push(\n                'Sold. Buy/sell difference: ', diff.toString(),\n                '. Cumulative gain:', cumulative.toString()\n            );\n        }\n        log.notify(...message);\n    });\n    multiEma.addObserver('cross', function() {log.debug('Cross');});\n    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});\n})();\n",
+    "content": "import {BinanceAccess} from './binance.mjs';\nimport {PriceIndicator, MultiEMAIndicator} from './indicator.mjs';\nimport {log, LogLevelType} from './log';\n\nimport Big from 'big.js';\n\n(async function main() {\n    log.info('Initialising exchange access');\n    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);\n    await binance.init();\n    log.info('  Binance access initialised.');\n\n    log.level = LogLevelType.info;\n\n    await binance.loadAccount(\n        process.env.BINANCEACCOUNT_NAME,\n        process.env.BINANCEACCOUNT_KEY,\n        process.env.BINANCEACCOUNT_SECRET\n    );\n    const nulsbtc = binance.getCoinPair('NULS','BTC');\n    const nulsbtcPrice = await PriceIndicator.createAndInit(\n        binance, nulsbtc.symbol, nulsbtc, '1m', 20);\n    const multiEma = await MultiEMAIndicator.createAndInit(\n        binance, `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);\n\n    log.notify(`Bot online. Tracking ${nulsbtc.symbol} ${nulsbtcPrice.interval}.`);\n\n    let buyAt = null;\n    let cumulative = new Big(0);\n\n    // Possibly the world's simplest trading strategy.\n    // Buy when The fast and slow EMA cross and sell when they cross again.\n    multiEma.addObserver('fastSlowCross', (crossed, time, price) => {\n        const message = [];\n        const signal =\n            crossed.findIndex((e) => e.nPeriods == multiEma.slow)\n            <\n            crossed.findIndex((e) => e.nPeriods == multiEma.fast)\n                ? 'sell' : 'buy';\n        message.push(\n            multiEma.name, multiEma.interval,\n            'Fast and slow EMA cross.',\n            `Signal: ${signal}.`,\n            `Price: ${price.toString()}.`\n        );\n        if (signal == 'buy') {\n            buyAt = price;\n        } else if (buyAt != null) {\n            const diff = price.sub(buyAt);\n            cumulative = cumulative.plus(diff);\n            message.push(\n                'Sold. Buy/sell difference: ', diff.toString(),\n                '. Cumulative gain:', cumulative.toString()\n            );\n            buyAt = null;\n        }\n        log.notify(...message);\n    });\n    multiEma.addObserver('cross', (crossed, time, price) => {\n        //if (buyAt == null) return;\n        //const signal =\n        //    crossed.findIndex((e) => e.nPeriods == \n    });\n    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});\n})();\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/main.mjs",
     "access": "public",
@@ -2109,10 +2508,10 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 109,
+    "__docId__": 124,
     "kind": "file",
     "name": "src/observable.mjs",
-    "content": "/**\n * Apply the Observable pattern to a subclass.\n * @package\n * @example\n *    How to use:\n *\n *    class Player extends ObservableMixin(Object) {\n *        constructor(maxHP) {\n *            super();\n *            this.hp = maxHP;\n *        }\n *\n *        dmg(value) {\n *            const oldHP = this.hp;\n *            this.hp -= value;\n *            if (this.hp <= 0) {\n *                this.notifyObserver('death', oldHP, this.hp);\n *                return;\n *            }\n *            this.notifyObserver('damage', oldHP, this.hp);\n *        }\n *    }\n *\n *    class A {\n *        constructor() {\n *            this.players = [new Player(100), new Player(60)];\n *            this.players[0].addObserver('death', this.playerDied, this, 0);\n *            this.players[0].addObserver('damage', this.playerDamaged, this, 0);\n *            this.players[1].addObserver('death', this.playerDied, this, 1);\n *            this.players[1].addObserver('damage', this.playerDamaged, this, 1);\n *        }\n *\n *        playerDied(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage and died.`);\n *            this.players.splice(playerIndex, 1);\n *        }\n *\n *        playerDamaged(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage.`);\n *        }\n *    }\n *\n *    const a = new A();\n *\n *    while (a.players.length > 0) {\n *        for (player of a.players) {\n *            player.dmg(10);\n *        }\n *    }\n */\nexport const ObservableMixin = superclass => class extends superclass {\n    constructor() {\n        super(...arguments);\n        this.observers = {};\n\n    }\n\n    addObserver(event, fn, useThis, ctxt) {\n        const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);\n        if (this.observers.hasOwnProperty(event)) {\n            this.observers[event].append(boundFn);\n            return;\n        }\n        this.observers[event] = [boundFn];\n    }\n\n    notifyObservers(event, ...args) {\n        if (!this.observers.hasOwnProperty(event))\n            return;\n\n        for (let observer of this.observers[event]) {\n            observer(...args);\n        }\n    }\n};\n\n/**************************************************************************\n**************************************************************************/\n",
+    "content": "/**\n * Apply the Observable pattern to a subclass.\n * @package\n * @example\n *    How to use:\n *\n *    class Player extends ObservableMixin(Object) {\n *        constructor(maxHP) {\n *            super();\n *            this.hp = maxHP;\n *        }\n *\n *        dmg(value) {\n *            const oldHP = this.hp;\n *            this.hp -= value;\n *            if (this.hp <= 0) {\n *                this.notifyObserver('death', oldHP, this.hp);\n *                return;\n *            }\n *            this.notifyObserver('damage', oldHP, this.hp);\n *        }\n *    }\n *\n *    class A {\n *        constructor() {\n *            this.players = [new Player(100), new Player(60)];\n *            this.players[0].addObserver('death', this.playerDied, this, 0);\n *            this.players[0].addObserver('damage', this.playerDamaged, this, 0);\n *            this.players[1].addObserver('death', this.playerDied, this, 1);\n *            this.players[1].addObserver('damage', this.playerDamaged, this, 1);\n *        }\n *\n *        playerDied(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage and died.`);\n *            this.players.splice(playerIndex, 1);\n *        }\n *\n *        playerDamaged(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage.`);\n *        }\n *    }\n *\n *    const a = new A();\n *\n *    while (a.players.length > 0) {\n *        for (player of a.players) {\n *            player.dmg(10);\n *        }\n *    }\n */\nexport const ObservableMixin = superclass => class extends superclass {\n    constructor() {\n        super(...arguments);\n        this.observers = new Map();\n\n    }\n\n    addObserver(event, fn, useThis, ctxt) {\n        const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);\n        if (this.observers.has(event)) {\n            this.observers.get(event).push(boundFn);\n            return;\n        }\n        this.observers.set(event, [boundFn]);\n    }\n\n    notifyObservers(event, ...args) {\n        if (!this.observers.has(event))\n            return;\n\n        for (let observer of this.observers.get(event)) {\n            observer(...args);\n        }\n    }\n};\n\n/**************************************************************************\n**************************************************************************/\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/observable.mjs",
     "access": "public",
@@ -2120,7 +2519,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 110,
+    "__docId__": 125,
     "kind": "function",
     "name": "ObservableMixin",
     "memberof": "src/observable.mjs",
@@ -2149,7 +2548,7 @@
     "return": null
   },
   {
-    "__docId__": 111,
+    "__docId__": 126,
     "kind": "file",
     "name": "src/telegram.mjs",
     "content": "import axios from 'axios';\n\nimport {log} from './log';\n\n/**\n * @access package\n */\nexport class TelegramBot {\n    constructor(key, channel, timeout=3000) {\n        this.key = key;\n        this.channel = channel;\n        this.base = 'https://api.telegram.org/bot';\n        this._axiosInst = axios.create({\n            baseURL: this.base,\n            timeout: timeout\n        });\n\n    }\n\n    async message(m) {\n        const url = `${this.base}${this.key}/sendMessage`;\n        const cfg = {\n            params: {\n                chat_id: this.channel,\n                text: m,\n                disable_notification: true\n            }\n        };\n\n        return this._axiosInst.get(url, cfg)\n            .then(response => {\n                log.debug(\n                    `${url} returned ${response.statusText} `+\n                    `(${response.status})`+\n                    `${response.data}`\n                );\n                return response.data;\n            })\n            .catch(err => {\n                log.error(`${url} returned error.`);\n                if (err.response) {\n                    log.error('response:', err.response.data);\n                    log.error(err.response.status);\n                    //console.log(err.response.headers);\n                } else if (err.request) {\n                    // The request was made but no response received.\n                    log.error('No response');\n                    log.error(err.request);\n                } else {\n                    log.error('Error', err.message);\n                }\n                throw err;\n            });\n    }\n}\n",
@@ -2160,7 +2559,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 112,
+    "__docId__": 127,
     "kind": "class",
     "name": "TelegramBot",
     "memberof": "src/telegram.mjs",
@@ -2176,7 +2575,7 @@
     "ignore": true
   },
   {
-    "__docId__": 113,
+    "__docId__": 128,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2190,7 +2589,7 @@
     "undocument": true
   },
   {
-    "__docId__": 114,
+    "__docId__": 129,
     "kind": "member",
     "name": "key",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2207,7 +2606,7 @@
     }
   },
   {
-    "__docId__": 115,
+    "__docId__": 130,
     "kind": "member",
     "name": "channel",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2224,7 +2623,7 @@
     }
   },
   {
-    "__docId__": 116,
+    "__docId__": 131,
     "kind": "member",
     "name": "base",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2241,7 +2640,7 @@
     }
   },
   {
-    "__docId__": 117,
+    "__docId__": 132,
     "kind": "member",
     "name": "_axiosInst",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2259,7 +2658,7 @@
     }
   },
   {
-    "__docId__": 118,
+    "__docId__": 133,
     "kind": "method",
     "name": "message",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2286,10 +2685,10 @@
     }
   },
   {
-    "__docId__": 119,
+    "__docId__": 134,
     "kind": "file",
     "name": "src/timeseries.mjs",
-    "content": "import {chartIntervalToMs} from './utils';\nimport {ObservableMixin} from './observable';\n\n// Assumes data will be added for all intervals, so we're not optimising for\n// space wrt missing data.\n\n/**\n * Data store for time series data - i.e. data that is associated with\n * fixed intervals of time and has no gaps.\n * @package\n */\nexport class TimeSeriesData extends ObservableMixin(Object) {\n    /**\n     * @param {string} interval     An string representing a time interval.\n     *                              For accepted values, see {@link chartIntervalToMs}.\n     */\n    constructor(interval) {\n        super();\n        /** Time interval in string form. */\n        this.intervalStr = interval;\n        /** Time interval in milliseconds. */\n        this.interval = chartIntervalToMs(interval);\n        this._firstTime = Infinity;\n        this._lastTime = 0;\n        this._data = [];\n    }\n\n    /**\n     * If a time is given that is after the last data sample, then\n     * fill the data up to time.\n     * @param {number} time     Time in milliseconds.\n     */\n    _checkAndFillTrailingData(time) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n        const gap = time - this._lastTime;\n        if (gap < this.interval) return;\n        const nMissing = Math.ceil(gap / this.interval);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = this._data.concat(\n            new Array(nMissing).fill(this._data[this._data.length - 1])\n        );\n        this._lastTime = time;\n    }\n\n    /**\n     * If a time is given that is prior to the first data sample, then\n     * fill the data from time to the first existing sample.\n     * @param {number} time     Time in milliseconds.\n     */\n    _checkAndFillLeadingData(time, data) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n        const gap = this._firstTime - time;\n        if (gap < this.interval) return;\n        const nMissing = Math.ceil(gap / this.interval);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = new Array(nMissing).fill(data).concat(this._data);\n        this._firstTime = time;\n    }\n\n    /**\n     * Add data to the series.\n     * If data is provided for a time that has existing data, then that data\n     * is overwritten.\n     * If data is provided more than one interval before or after existing data\n     * then the empty samples are padded with the preceeding data value.\n     * @param {number} time     The time in milliseconds.\n     * @param          data     The data value to store at this time.\n     */\n    addData(time, data) {\n        if (time % this.interval !== 0) time -= (time % this.interval);\n\n        if (this._data.length === 0) {\n            this._data.push(data);\n            this._lastTime = this._firstTime = time;\n        } else if (time > this._lastTime) {\n            // Comes after last sample\n            this._checkAndFillTrailingData(time - this.interval);\n            this._data.push(data);\n            this._lastTime = time;\n            this.notifyObservers('extended', data, time);\n        } else if (time < this._firstTime) {\n            // Comes before first sample\n            this._checkAndFillLeadingData(time + this.interval, data);\n            this._data.unshift(data);\n            this._firstTime = time;\n        } else {\n            // If it falls exactly on the interval, overwrites an existing\n            // sample, otherwise an error.\n            const replaceIndex = (time - this._firstTime) / this.interval;\n            this._data[replaceIndex] = data;\n            this.notifyObservers('replaceRecent', data, time);\n        }\n    }\n\n    /**\n     * Get the most recent samples. By default, this includes the most recent\n     * interval which will likely not be closed.\n     * If the current time is past the last data sample, then the value of the\n     * last data sample will be used to fill the data samples up to the current time.\n     * @param {number}      n           The number of samples to return.\n     *                                  If n > the number of samples available, all\n     *                                  available samples will be returned.\n     * @param {currentTime} currentTime The current time in milliseconds. This\n     *                                  is required to determine if the latest\n     *                                  sample is closed and to pad data\n     *                                  if the current time is after the last\n     *                                  data sample.\n     * @param {boolean}     [includeOpen=true]\n     *                                  Whether to include open or only closed\n     *                                  samples. A sample is closed once the full\n     *                                  time for the interval has elapsed.\n     *\n     * @return {Array<number|string|boolean|object>}\n     *                                  An array containing the requested samples,\n     *                                  or an empty array if there is no data\n     *                                  stored.\n     * @throws {Error}  If n < 1.\n     */\n    getRecent(n, currentTime, includeOpen=true) {\n        if (n < 1) throw new Error('n < 1');\n        if (this._data.length < 1) return [];\n\n        this._checkAndFillTrailingData(currentTime);\n        const lastSampleOpen = currentTime - this._lastTime < this.interval;\n\n        if (includeOpen || !lastSampleOpen) return this._data.slice(-n);\n\n        const offset = this._data.length - 1;\n        return this._data.slice(Math.max(0, offset - n), offset);\n    }\n\n    /**\n     * Get a value from the time series for a specific time.\n     * @param {number} time     The time in the series from where data will\n     *                          be retrieved.\n     * @returns        The data at that time, or undefined if no data exists\n     *                 at that time.\n     */\n    getAt(time) {\n        time -= (time % this.interval);\n\n        if (time < this._firstTime || time > this._lastTime) {\n            return undefined;\n        }\n\n        const index = (time - this._firstTime) / this.interval;\n        return this._data[index];\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getRange(startTime, endTime) {\n    }\n}\n",
+    "content": "import {chartIntervalToMs} from './utils';\nimport {ObservableMixin} from './observable';\n\n// Assumes data will be added for all intervals, so we're not optimising for\n// space wrt missing data.\n\n/**\n * Data store for time series data - i.e. data that is associated with\n * fixed intervals of time and has no gaps.\n * The TimeSeriesData class is designed to provide data immediately if it\n * is available, so it is suitable for time critical requests.\n * Because of this, any data required must be pushed into the TimeSeriesData\n * instance prior to use. There is no mechanism for pulling missing data when\n * needed, as the pull may take an unknown amount of time (due to network\n * requests, etc).\n * @package\n */\nexport class TimeSeriesData extends ObservableMixin(Object) {\n    /**\n     * @param {string} interval     A string representing a time interval.\n     *                              For accepted values, see {@link chartIntervalToMs}.\n     */\n    constructor(interval) {\n        super();\n        /** Time interval in string form. */\n        this.interval = interval;\n        /** Time interval in milliseconds. */\n        this.intervalMs = chartIntervalToMs(interval);\n        this.firstTime = Infinity;\n        this._lastTime = 0;\n        this._data = [];\n        this.hasData = false;\n    }\n\n    /**\n     * If a time is given that is after the last data sample, then\n     * fill the data up to time.\n     * @param {number} time     Time in milliseconds.\n     */\n    _checkAndFillTrailingData(time) {\n        if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);\n        const gap = time - this._lastTime;\n        if (gap < this.intervalMs) return;\n        const nMissing = Math.ceil(gap / this.intervalMs);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = this._data.concat(\n            new Array(nMissing).fill(this._data[this._data.length - 1])\n        );\n        this._lastTime = time;\n    }\n\n    /**\n     * If a time is given that is prior to the first data sample, then\n     * fill the data from time to the first existing sample, using the\n     * given data value.\n     * @param {number} time     Time in milliseconds.\n     * @param          data     The data value to use when filling.\n     */\n    _checkAndFillLeadingData(time, data) {\n        if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);\n        const gap = this.firstTime - time;\n        if (gap < this.intervalMs) return;\n        const nMissing = Math.ceil(gap / this.intervalMs);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = new Array(nMissing).fill(data).concat(this._data);\n        this.firstTime = time;\n    }\n\n    /**\n     * Add data to the series.\n     * If data is provided for a time that has existing data, then that data\n     * is overwritten.\n     * If data is provided more than one interval before or after existing data\n     * then the empty samples are padded with the preceeding data value.\n     * @param {number} time     The time in milliseconds.\n     * @param          data     The data value to store at this time.\n     */\n    addData(time, data) {\n        time -= (time % this.intervalMs);\n\n        if (this._data.length === 0) {\n            this._data.push(data);\n            this._lastTime = this.firstTime = time;\n        } else if (time > this._lastTime) {\n            // Comes after last sample\n            this._checkAndFillTrailingData(time - this.intervalMs);\n            this._data.push(data);\n            this._lastTime = time;\n            this.notifyObservers('extended', data, time);\n        } else if (time < this.firstTime) {\n            // Comes before first sample\n            this._checkAndFillLeadingData(time + this.intervalMs, data);\n            this._data.unshift(data);\n            this.firstTime = time;\n        } else {\n            // If it falls exactly on the interval, overwrites an existing\n            // sample, otherwise an error.\n            const replaceIndex = (time - this.firstTime) / this.intervalMs;\n            this._data[replaceIndex] = data;\n            this.notifyObservers('replaceRecent', data, time);\n        }\n\n        this.hasData = this._data.length > 0;\n    }\n\n    /**\n     * Get a value from the time series for a specific time.\n     * @param {number} time     The time in the series from where data will\n     *                          be retrieved.\n     * @returns        The data at that time, or undefined if no data exists\n     *                 at that time.\n     */\n    getAt(time) {\n        // It's bad to push and pull data because it opens us up\n        // to timing issues and means you may not get data back promptly - getAt\n        // would need to be async and then timing is not deterministic.\n        // So if data is missing, we just return undefined.\n        // TODO: write up this problem because it would be a good one to use\n        // during a job interview.\n        // Some examples of contention - call getAt, it requires historic data,\n        // while waiting for it new data comes in, which results in events\n        // being executed and newer data being requested - the calculation\n        // result would be 'undefined' (in the non deterministic sense) in this case.\n        time -= (time % this.intervalMs);\n        if (time < this.firstTime || time > this._lastTime) return undefined;\n\n        const index = (time - this.firstTime) / this.intervalMs;\n        return this._data[index];\n    }\n\n    /**\n     * Merge data from another TimeSeriesData instance into this one.\n     * @param {TimeSeriesData} other    Another TimeSeriesData instance, created\n     *                                  with the same interval.\n     * @throws {Error}  If the interval of {@link other} doesn't match the\n     *                  interval of this instance.\n     */\n    merge(other) {\n        if (other.intervalMs != this.intervalMs) {\n            throw new Error('Cannot merge due to different intervals.');\n        }\n        if (other._data.length == 0) return;\n\n        const interval = this.intervalMs;\n\n        let insertI = 0;\n\n        if (this.hasData) {\n            insertI = (other.firstTime - this.firstTime) / interval;\n            if (insertI < 0) {\n                // Will extend the start of the array by the number of required\n                // elements, and also fill with the last data value from other.\n                // This ensures that if the values from other don't fill all the way\n                // to the start of the existing data, there's no gaps.\n                this._checkAndFillLeadingData(other.firstTime, other._data[other._data.length-1]);\n                insertI = 0;\n            } else if (insertI > this._data.length) {\n                this._checkAndFillTrailingData(other.firstTime);\n            }\n        }\n\n        // Do the merge\n        for (\n            let i = 0, time = other.firstTime;\n            i < other._data.length;\n            i++, time += interval, insertI++\n        ) {\n            this._data[insertI] = other._data[i];\n        }\n\n        this.firstTime = Math.min(this.firstTime, other.firstTime);\n        this._lastTime = Math.max(this._lastTime, other._lastTime);\n\n        this.hasData = this._data.length > 0;\n    }\n}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/timeseries.mjs",
     "access": "public",
@@ -2297,7 +2696,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 120,
+    "__docId__": 135,
     "kind": "class",
     "name": "TimeSeriesData",
     "memberof": "src/timeseries.mjs",
@@ -2307,8 +2706,8 @@
     "export": true,
     "importPath": "cryptotrader9000/src/timeseries.mjs",
     "importStyle": "{TimeSeriesData}",
-    "description": "Data store for time series data - i.e. data that is associated with\nfixed intervals of time and has no gaps.",
-    "lineNumber": 12,
+    "description": "Data store for time series data - i.e. data that is associated with\nfixed intervals of time and has no gaps.\nThe TimeSeriesData class is designed to provide data immediately if it\nis available, so it is suitable for time critical requests.\nBecause of this, any data required must be pushed into the TimeSeriesData\ninstance prior to use. There is no mechanism for pulling missing data when\nneeded, as the pull may take an unknown amount of time (due to network\nrequests, etc).",
+    "lineNumber": 18,
     "interface": false,
     "expressionExtends": "ObservableMixin(Object)",
     "extends": [
@@ -2317,10 +2716,10 @@
     "ignore": true
   },
   {
-    "__docId__": 121,
+    "__docId__": 136,
     "kind": "file",
     "name": "src/utils.mjs",
-    "content": "/* eslint-disable no-fallthrough */\n\n/**\n * @access package\n */\nexport function intervalToMs(intervalStr, multiplier=1) {\n    switch (intervalStr) {\n        case 'M':\n            throw new Error(\"Months aren't supported because they are too variable. Sorry.\");\n        case 'w':\n            multiplier *= 7;\n        case 'd':\n        case 'DAY':\n            multiplier *= 24;\n        case 'h':\n            multiplier *= 60;\n        case 'm':\n        case 'MINUTE':\n            multiplier *= 60;\n        case 'SECOND': return 1000 * multiplier;\n        default: throw new Error('bad intervalStr');\n    }\n}\n\n/**\n * A chart interval string is a number followed by a time period.\n * Where time period may be any of:\n * m -> minutes; h -> hours; d -> days; w -> weeks; M -> months\n * @access package\n */\nexport function chartIntervalToMs(intervalStr) {\n    const result = intervalStr.match(/^([\\d]+)([mhdwM])$/);\n    if (result === null) {\n        throw new Error(`${intervalStr} is not a valid intervalStr.`);\n    }\n    const num = result[1], period = result[2];\n    const ms = intervalToMs(period, num);\n    return ms;\n}\n\n/**\n * @typedef {any} Any   Any type.\n * @access package\n */\n\n/**\n * @typedef {any} ComparisonType    Any type, but all parameters of this type\n *                                  must be comparable.\n * @access package\n */\n\n/**\n * Given two arrays, with values that can be compared, determine which\n * values 'crossed' from the first to the second.\n * Also determine if the fast and slow (mininum value and maximum value) crossed.\n * For example, for a = [1,2,3,4], and b = [1,3,2,4]. Values 2 and 3 are considered\n * to have crossed as they swapped position.\n * @access package\n *\n * @param {Array<Any>} a      The first array of values.\n * @param {Array<Any>} b      The first array of values.\n * @param {ComparisonType}    fast   The 'fast' value.\n * @param {ComparisonType}    slow   The 'slow' value.\n * @param {function(a:Any): ComparisonType} valueFn   A function for retrieving the\n *                                      comparison value from 'a' and 'b',\n *                                      if they are compound objects and the comparison\n *                                      value is a property.\n *\n * @returns {{fastSlowCross: bool, crossed: Array<Any>}}    An object with\n * properties 'fastSlowCross', which indicates if fast and slow crossed, and\n * the array 'crossed' which contains any elements that crossed, or is empty\n * if no cross occurred.\n *\n * @example\n * const a = [1,2,3,4]\n * const b = [1,4,3,2]\n * const cross = findCross(a, b, 1, 4);\n * console.log(cross); // {fastSlowCross: false, crossed: [4,3,2]\n */\nexport function findCross(a, b, fast, slow, valueFn=(a)=>a) {\n    let firstCross = null;\n    let afterCross = null;\n    // Assume min and max cross unless we see one of them outside of the\n    // cross zone.\n    let fastSlowCross = true;\n\n    // Two separate loops seems to be ever so slightly faster.\n    for (let r = a.length-1; afterCross === null && r > 0; r--) {\n        if (valueFn(a[r]) != valueFn(b[r])) afterCross = r+1;\n        else if (valueFn(a[r]) == fast || valueFn(a[r]) == slow) fastSlowCross = false;\n    }\n\n    if (afterCross === null) return {fastSlowCross:false, crossed:[]};\n\n    for (let l = 0; firstCross === null && l < afterCross; l++) {\n        if (valueFn(a[l]) != valueFn(b[l])) firstCross = l;\n        else if (valueFn(a[l]) == fast || valueFn(a[l]) == slow) fastSlowCross = false;\n    }\n\n    return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};\n}\n\n\n",
+    "content": "/* eslint-disable no-fallthrough */\n\n/**\n * @access package\n */\nexport function intervalToMs(intervalStr, multiplier=1) {\n    switch (intervalStr) {\n        case 'M':\n            throw new Error(\"Months aren't supported because they are too variable. Sorry.\");\n        case 'w':\n            multiplier *= 7;\n        case 'd':\n        case 'DAY':\n            multiplier *= 24;\n        case 'h':\n            multiplier *= 60;\n        case 'm':\n        case 'MINUTE':\n            multiplier *= 60;\n        case 'SECOND': return 1000 * multiplier;\n        default: throw new Error('bad intervalStr');\n    }\n}\n\n/**\n * A chart interval string is a number followed by a time period.\n * Where time period may be any of:\n * m -> minutes; h -> hours; d -> days; w -> weeks; M -> months\n * @access package\n */\nexport function chartIntervalToMs(intervalStr) {\n    const result = intervalStr.match(/^([\\d]+)([mhdwM])$/);\n    if (result === null) {\n        throw new Error(`${intervalStr} is not a valid intervalStr.`);\n    }\n    const num = result[1], period = result[2];\n    const ms = intervalToMs(period, num);\n    return ms;\n}\n\n/**\n * @typedef {any} Any   Any type.\n * @access package\n */\n\n/**\n * @typedef {any} ComparisonType    Any type, but all parameters of this type\n *                                  must be comparable.\n * @access package\n */\n\n/**\n * Given two arrays, with values that can be compared, determine which\n * values 'crossed' from the first to the second.\n * Also determine if the fast and slow (mininum value and maximum value) crossed.\n * For example, for a = [1,2,3,4], and b = [1,3,2,4]. Values 2 and 3 are considered\n * to have crossed as they swapped position.\n * @access package\n *\n * @param {Array<Any>} a      The first array of values.\n * @param {Array<Any>} b      The first array of values.\n * @param {ComparisonType}    fast   The 'fast' value.\n * @param {ComparisonType}    slow   The 'slow' value.\n * @param {function(a:Any): ComparisonType} valueFn   A function for retrieving the\n *                                      comparison value from 'a' and 'b',\n *                                      if they are compound objects and the comparison\n *                                      value is a property.\n *\n * @returns {{fastSlowCross: bool, crossed: Array<Any>}}    An object with\n * properties 'fastSlowCross', which indicates if fast and slow crossed, and\n * the array 'crossed' which contains any elements that crossed, or is empty\n * if no cross occurred.\n *\n * @example\n * const a = [1,2,3,4]\n * const b = [1,4,3,2]\n * const cross = findCross(a, b, 1, 4);\n * console.log(cross); // {fastSlowCross: false, crossed: [4,3,2]\n */\nexport function findCross(a, b, fast, slow, valueFn=(a)=>a) {\n    let firstCross = null;\n    let afterCross = null;\n    // Assume min and max cross unless we see one of them outside of the\n    // cross zone.\n    let fastSlowCross = true;\n\n    // Two separate loops seems to be ever so slightly faster.\n    for (let r = a.length-1; afterCross === null && r > 0; r--) {\n        if (valueFn(a[r]) != valueFn(b[r])) afterCross = r+1;\n        else if (valueFn(a[r]) == fast || valueFn(a[r]) == slow) fastSlowCross = false;\n    }\n\n    if (afterCross === null) return {fastSlowCross:false, crossed:[]};\n\n    for (let l = 0; firstCross === null && l < afterCross; l++) {\n        if (valueFn(a[l]) != valueFn(b[l])) firstCross = l;\n        else if (valueFn(a[l]) == fast || valueFn(a[l]) == slow) fastSlowCross = false;\n    }\n\n    return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};\n}\n\n/**\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n */\nexport function timeStr(timestamp) {\n    return new Date(timestamp).toLocaleString();\n}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/utils.mjs",
     "access": "public",
@@ -2328,7 +2727,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 122,
+    "__docId__": 137,
     "kind": "function",
     "name": "intervalToMs",
     "memberof": "src/utils.mjs",
@@ -2367,7 +2766,7 @@
     }
   },
   {
-    "__docId__": 123,
+    "__docId__": 138,
     "kind": "function",
     "name": "chartIntervalToMs",
     "memberof": "src/utils.mjs",
@@ -2397,7 +2796,7 @@
     }
   },
   {
-    "__docId__": 124,
+    "__docId__": 139,
     "kind": "typedef",
     "name": "Any",
     "memberof": "src/utils.mjs",
@@ -2415,7 +2814,7 @@
     "ignore": true
   },
   {
-    "__docId__": 125,
+    "__docId__": 140,
     "kind": "typedef",
     "name": "ComparisonType",
     "memberof": "src/utils.mjs",
@@ -2433,7 +2832,7 @@
     "ignore": true
   },
   {
-    "__docId__": 126,
+    "__docId__": 141,
     "kind": "function",
     "name": "findCross",
     "memberof": "src/utils.mjs",
@@ -2517,6 +2916,48 @@
       "description": "An object with\nproperties 'fastSlowCross', which indicates if fast and slow crossed, and\nthe array 'crossed' which contains any elements that crossed, or is empty\nif no cross occurred."
     },
     "ignore": true
+  },
+  {
+    "__docId__": 142,
+    "kind": "function",
+    "name": "timeStr",
+    "memberof": "src/utils.mjs",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "src/utils.mjs~timeStr",
+    "access": "public",
+    "export": true,
+    "importPath": "cryptotrader9000/src/utils.mjs",
+    "importStyle": "{timeStr}",
+    "description": "Return a nicely formatted string for a timestamp.",
+    "lineNumber": 109,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{string}            A string containing a human readable\n                             representation of timestamp."
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "timestamp",
+        "description": "The timestamp"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "string"
+      ],
+      "spread": false,
+      "description": "A string containing a human readable\n                             representation of timestamp."
+    }
   },
   {
     "kind": "index",

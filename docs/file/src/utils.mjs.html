@@ -39,6 +39,9 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
 </div>
@@ -147,7 +150,15 @@ export function findCross(a, b, fast, slow, valueFn=(a)=&gt;a) {
     return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};
 }
 
-
+/**
+ * Return a nicely formatted string for a timestamp.
+ * @param {number} timestamp    The timestamp
+ * @returns {string}            A string containing a human readable
+ *                              representation of timestamp.
+ */
+export function timeStr(timestamp) {
+    return new Date(timestamp).toLocaleString();
+}
 </code></pre>
 
 </div>

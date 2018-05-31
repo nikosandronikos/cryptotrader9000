@@ -39,6 +39,9 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
 </div>
@@ -54,22 +57,29 @@ import {ObservableMixin} from &apos;./observable&apos;;
 /**
  * Data store for time series data - i.e. data that is associated with
  * fixed intervals of time and has no gaps.
+ * The TimeSeriesData class is designed to provide data immediately if it
+ * is available, so it is suitable for time critical requests.
+ * Because of this, any data required must be pushed into the TimeSeriesData
+ * instance prior to use. There is no mechanism for pulling missing data when
+ * needed, as the pull may take an unknown amount of time (due to network
+ * requests, etc).
  * @package
  */
 export class TimeSeriesData extends ObservableMixin(Object) {
     /**
-     * @param {string} interval     An string representing a time interval.
+     * @param {string} interval     A string representing a time interval.
      *                              For accepted values, see {@link chartIntervalToMs}.
      */
     constructor(interval) {
         super();
         /** Time interval in string form. */
-        this.intervalStr = interval;
+        this.interval = interval;
         /** Time interval in milliseconds. */
-        this.interval = chartIntervalToMs(interval);
-        this._firstTime = Infinity;
+        this.intervalMs = chartIntervalToMs(interval);
+        this.firstTime = Infinity;
         this._lastTime = 0;
         this._data = [];
+        this.hasData = false;
     }
 
     /**
@@ -78,10 +88,10 @@ export class TimeSeriesData extends ObservableMixin(Object) {
      * @param {number} time     Time in milliseconds.
      */
     _checkAndFillTrailingData(time) {
-        if (time % this.interval !== 0) time -= (time % this.interval);
+        if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);
         const gap = time - this._lastTime;
-        if (gap &lt; this.interval) return;
-        const nMissing = Math.ceil(gap / this.interval);
+        if (gap &lt; this.intervalMs) return;
+        const nMissing = Math.ceil(gap / this.intervalMs);
         //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
         this._data = this._data.concat(
             new Array(nMissing).fill(this._data[this._data.length - 1])
@@ -91,17 +101,19 @@ export class TimeSeriesData extends ObservableMixin(Object) {
 
     /**
      * If a time is given that is prior to the first data sample, then
-     * fill the data from time to the first existing sample.
+     * fill the data from time to the first existing sample, using the
+     * given data value.
      * @param {number} time     Time in milliseconds.
+     * @param          data     The data value to use when filling.
      */
     _checkAndFillLeadingData(time, data) {
-        if (time % this.interval !== 0) time -= (time % this.interval);
-        const gap = this._firstTime - time;
-        if (gap &lt; this.interval) return;
-        const nMissing = Math.ceil(gap / this.interval);
+        if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);
+        const gap = this.firstTime - time;
+        if (gap &lt; this.intervalMs) return;
+        const nMissing = Math.ceil(gap / this.intervalMs);
         //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
         this._data = new Array(nMissing).fill(data).concat(this._data);
-        this._firstTime = time;
+        this.firstTime = time;
     }
 
     /**
@@ -114,66 +126,31 @@ export class TimeSeriesData extends ObservableMixin(Object) {
      * @param          data     The data value to store at this time.
      */
     addData(time, data) {
-        if (time % this.interval !== 0) time -= (time % this.interval);
+        time -= (time % this.intervalMs);
 
         if (this._data.length === 0) {
             this._data.push(data);
-            this._lastTime = this._firstTime = time;
+            this._lastTime = this.firstTime = time;
         } else if (time &gt; this._lastTime) {
             // Comes after last sample
-            this._checkAndFillTrailingData(time - this.interval);
+            this._checkAndFillTrailingData(time - this.intervalMs);
             this._data.push(data);
             this._lastTime = time;
             this.notifyObservers(&apos;extended&apos;, data, time);
-        } else if (time &lt; this._firstTime) {
+        } else if (time &lt; this.firstTime) {
             // Comes before first sample
-            this._checkAndFillLeadingData(time + this.interval, data);
+            this._checkAndFillLeadingData(time + this.intervalMs, data);
             this._data.unshift(data);
-            this._firstTime = time;
+            this.firstTime = time;
         } else {
             // If it falls exactly on the interval, overwrites an existing
             // sample, otherwise an error.
-            const replaceIndex = (time - this._firstTime) / this.interval;
+            const replaceIndex = (time - this.firstTime) / this.intervalMs;
             this._data[replaceIndex] = data;
             this.notifyObservers(&apos;replaceRecent&apos;, data, time);
         }
-    }
 
-    /**
-     * Get the most recent samples. By default, this includes the most recent
-     * interval which will likely not be closed.
-     * If the current time is past the last data sample, then the value of the
-     * last data sample will be used to fill the data samples up to the current time.
-     * @param {number}      n           The number of samples to return.
-     *                                  If n &gt; the number of samples available, all
-     *                                  available samples will be returned.
-     * @param {currentTime} currentTime The current time in milliseconds. This
-     *                                  is required to determine if the latest
-     *                                  sample is closed and to pad data
-     *                                  if the current time is after the last
-     *                                  data sample.
-     * @param {boolean}     [includeOpen=true]
-     *                                  Whether to include open or only closed
-     *                                  samples. A sample is closed once the full
-     *                                  time for the interval has elapsed.
-     *
-     * @return {Array&lt;number|string|boolean|object&gt;}
-     *                                  An array containing the requested samples,
-     *                                  or an empty array if there is no data
-     *                                  stored.
-     * @throws {Error}  If n &lt; 1.
-     */
-    getRecent(n, currentTime, includeOpen=true) {
-        if (n &lt; 1) throw new Error(&apos;n &lt; 1&apos;);
-        if (this._data.length &lt; 1) return [];
-
-        this._checkAndFillTrailingData(currentTime);
-        const lastSampleOpen = currentTime - this._lastTime &lt; this.interval;
-
-        if (includeOpen || !lastSampleOpen) return this._data.slice(-n);
-
-        const offset = this._data.length - 1;
-        return this._data.slice(Math.max(0, offset - n), offset);
+        this.hasData = this._data.length &gt; 0;
     }
 
     /**
@@ -184,18 +161,67 @@ export class TimeSeriesData extends ObservableMixin(Object) {
      *                 at that time.
      */
     getAt(time) {
-        time -= (time % this.interval);
+        // It&apos;s bad to push and pull data because it opens us up
+        // to timing issues and means you may not get data back promptly - getAt
+        // would need to be async and then timing is not deterministic.
+        // So if data is missing, we just return undefined.
+        // TODO: write up this problem because it would be a good one to use
+        // during a job interview.
+        // Some examples of contention - call getAt, it requires historic data,
+        // while waiting for it new data comes in, which results in events
+        // being executed and newer data being requested - the calculation
+        // result would be &apos;undefined&apos; (in the non deterministic sense) in this case.
+        time -= (time % this.intervalMs);
+        if (time &lt; this.firstTime || time &gt; this._lastTime) return undefined;
 
-        if (time &lt; this._firstTime || time &gt; this._lastTime) {
-            return undefined;
-        }
-
-        const index = (time - this._firstTime) / this.interval;
+        const index = (time - this.firstTime) / this.intervalMs;
         return this._data[index];
     }
 
-    // eslint-disable-next-line no-unused-vars
-    getRange(startTime, endTime) {
+    /**
+     * Merge data from another TimeSeriesData instance into this one.
+     * @param {TimeSeriesData} other    Another TimeSeriesData instance, created
+     *                                  with the same interval.
+     * @throws {Error}  If the interval of {@link other} doesn&apos;t match the
+     *                  interval of this instance.
+     */
+    merge(other) {
+        if (other.intervalMs != this.intervalMs) {
+            throw new Error(&apos;Cannot merge due to different intervals.&apos;);
+        }
+        if (other._data.length == 0) return;
+
+        const interval = this.intervalMs;
+
+        let insertI = 0;
+
+        if (this.hasData) {
+            insertI = (other.firstTime - this.firstTime) / interval;
+            if (insertI &lt; 0) {
+                // Will extend the start of the array by the number of required
+                // elements, and also fill with the last data value from other.
+                // This ensures that if the values from other don&apos;t fill all the way
+                // to the start of the existing data, there&apos;s no gaps.
+                this._checkAndFillLeadingData(other.firstTime, other._data[other._data.length-1]);
+                insertI = 0;
+            } else if (insertI &gt; this._data.length) {
+                this._checkAndFillTrailingData(other.firstTime);
+            }
+        }
+
+        // Do the merge
+        for (
+            let i = 0, time = other.firstTime;
+            i &lt; other._data.length;
+            i++, time += interval, insertI++
+        ) {
+            this._data[insertI] = other._data[i];
+        }
+
+        this.firstTime = Math.min(this.firstTime, other.firstTime);
+        this._lastTime = Math.max(this._lastTime, other._lastTime);
+
+        this.hasData = this._data.length &gt; 0;
     }
 }
 </code></pre>

@@ -66,6 +66,24 @@ window.esdocSearchIndex = [
     "class"
   ],
   [
+    "cryptotrader9000/src/indicator.mjs~multiindicator",
+    "class/src/indicator.mjs~MultiIndicator.html",
+    "<span>MultiIndicator</span> <span class=\"search-result-import-path\">cryptotrader9000/src/indicator.mjs</span>",
+    "class"
+  ],
+  [
+    "cryptotrader9000/src/indicator.mjs~priceindicator",
+    "class/src/indicator.mjs~PriceIndicator.html",
+    "<span>PriceIndicator</span> <span class=\"search-result-import-path\">cryptotrader9000/src/indicator.mjs</span>",
+    "class"
+  ],
+  [
+    "cryptotrader9000/src/utils.mjs~timestr",
+    "function/index.html#static-function-timeStr",
+    "<span>timeStr</span> <span class=\"search-result-import-path\">cryptotrader9000/src/utils.mjs</span>",
+    "function"
+  ],
+  [
     "src/account.mjs",
     "file/src/account.mjs.html",
     "src/account.mjs",
@@ -159,6 +177,12 @@ window.esdocSearchIndex = [
     "src/binancestream.mjs~binancestreamklines#gethistory",
     "class/src/binancestream.mjs~BinanceStreamKlines.html#instance-method-getHistory",
     "src/binancestream.mjs~BinanceStreamKlines#getHistory",
+    "method"
+  ],
+  [
+    "src/binancestream.mjs~binancestreamklines#gethistoryfromto",
+    "class/src/binancestream.mjs~BinanceStreamKlines.html#instance-method-getHistoryFromTo",
+    "src/binancestream.mjs~BinanceStreamKlines#getHistoryFromTo",
     "method"
   ],
   [
@@ -258,22 +282,16 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/indicator.mjs~emaindicator#getat",
+    "class/src/indicator.mjs~EMAIndicator.html#instance-method-getAt",
+    "src/indicator.mjs~EMAIndicator#getAt",
+    "method"
+  ],
+  [
     "src/indicator.mjs~emaindicator#init",
     "class/src/indicator.mjs~EMAIndicator.html#instance-method-init",
     "src/indicator.mjs~EMAIndicator#init",
     "method"
-  ],
-  [
-    "src/indicator.mjs~emaindicator#interval",
-    "class/src/indicator.mjs~EMAIndicator.html#instance-member-interval",
-    "src/indicator.mjs~EMAIndicator#interval",
-    "member"
-  ],
-  [
-    "src/indicator.mjs~emaindicator#intervalms",
-    "class/src/indicator.mjs~EMAIndicator.html#instance-member-intervalMs",
-    "src/indicator.mjs~EMAIndicator#intervalMs",
-    "member"
   ],
   [
     "src/indicator.mjs~emaindicator#nperiods",
@@ -282,15 +300,15 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/indicator.mjs~emaindicator#prephistory",
+    "class/src/indicator.mjs~EMAIndicator.html#instance-method-prepHistory",
+    "src/indicator.mjs~EMAIndicator#prepHistory",
+    "method"
+  ],
+  [
     "src/indicator.mjs~emaindicator#source",
     "class/src/indicator.mjs~EMAIndicator.html#instance-member-source",
     "src/indicator.mjs~EMAIndicator#source",
-    "member"
-  ],
-  [
-    "src/indicator.mjs~emaindicator#stream",
-    "class/src/indicator.mjs~EMAIndicator.html#instance-member-stream",
-    "src/indicator.mjs~EMAIndicator#stream",
     "member"
   ],
   [
@@ -318,12 +336,6 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
-    "src/indicator.mjs~multiemaindicator#data",
-    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-data",
-    "src/indicator.mjs~MultiEMAIndicator#data",
-    "member"
-  ],
-  [
     "src/indicator.mjs~multiemaindicator#emas",
     "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-emas",
     "src/indicator.mjs~MultiEMAIndicator#emas",
@@ -336,16 +348,22 @@ window.esdocSearchIndex = [
     "member"
   ],
   [
+    "src/indicator.mjs~multiemaindicator#getall",
+    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-method-getAll",
+    "src/indicator.mjs~MultiEMAIndicator#getAll",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~multiemaindicator#getat",
+    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-method-getAt",
+    "src/indicator.mjs~MultiEMAIndicator#getAt",
+    "method"
+  ],
+  [
     "src/indicator.mjs~multiemaindicator#init",
     "class/src/indicator.mjs~MultiEMAIndicator.html#instance-method-init",
     "src/indicator.mjs~MultiEMAIndicator#init",
     "method"
-  ],
-  [
-    "src/indicator.mjs~multiemaindicator#interval",
-    "class/src/indicator.mjs~MultiEMAIndicator.html#instance-member-interval",
-    "src/indicator.mjs~MultiEMAIndicator#interval",
-    "member"
   ],
   [
     "src/indicator.mjs~multiemaindicator#lengths",
@@ -375,6 +393,66 @@ window.esdocSearchIndex = [
     "src/indicator.mjs~multiemaindicator.createandinit",
     "class/src/indicator.mjs~MultiEMAIndicator.html#static-method-createAndInit",
     "src/indicator.mjs~MultiEMAIndicator.createAndInit",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~multiindicator#constructor",
+    "class/src/indicator.mjs~MultiIndicator.html#instance-constructor-constructor",
+    "src/indicator.mjs~MultiIndicator#constructor",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~multiindicator#getall",
+    "class/src/indicator.mjs~MultiIndicator.html#instance-method-getAll",
+    "src/indicator.mjs~MultiIndicator#getAll",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#coinpair",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-member-coinPair",
+    "src/indicator.mjs~PriceIndicator#coinPair",
+    "member"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#constructor",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-constructor-constructor",
+    "src/indicator.mjs~PriceIndicator#constructor",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#data",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-member-data",
+    "src/indicator.mjs~PriceIndicator#data",
+    "member"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#getat",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-method-getAt",
+    "src/indicator.mjs~PriceIndicator#getAt",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#init",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-method-init",
+    "src/indicator.mjs~PriceIndicator#init",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#prephistory",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-method-prepHistory",
+    "src/indicator.mjs~PriceIndicator#prepHistory",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~priceindicator#stream",
+    "class/src/indicator.mjs~PriceIndicator.html#instance-member-stream",
+    "src/indicator.mjs~PriceIndicator#stream",
+    "member"
+  ],
+  [
+    "src/indicator.mjs~priceindicator.createandinit",
+    "class/src/indicator.mjs~PriceIndicator.html#static-method-createAndInit",
+    "src/indicator.mjs~PriceIndicator.createAndInit",
     "method"
   ],
   [

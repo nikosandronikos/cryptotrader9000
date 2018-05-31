@@ -39,6 +39,9 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
 </div>
@@ -98,24 +101,24 @@
 export const ObservableMixin = superclass =&gt; class extends superclass {
     constructor() {
         super(...arguments);
-        this.observers = {};
+        this.observers = new Map();
 
     }
 
     addObserver(event, fn, useThis, ctxt) {
         const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);
-        if (this.observers.hasOwnProperty(event)) {
-            this.observers[event].append(boundFn);
+        if (this.observers.has(event)) {
+            this.observers.get(event).push(boundFn);
             return;
         }
-        this.observers[event] = [boundFn];
+        this.observers.set(event, [boundFn]);
     }
 
     notifyObservers(event, ...args) {
-        if (!this.observers.hasOwnProperty(event))
+        if (!this.observers.has(event))
             return;
 
-        for (let observer of this.observers[event]) {
+        for (let observer of this.observers.get(event)) {
             observer(...args);
         }
     }

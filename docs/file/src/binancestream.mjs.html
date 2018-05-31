@@ -39,6 +39,9 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
 </div>
@@ -48,6 +51,7 @@
 <pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import {BinanceCommands} from &apos;./binance.mjs&apos;;
 import {ObservableMixin} from &apos;./observable&apos;;
 import {TimeSeriesData} from &apos;./timeseries&apos;;
+import {chartIntervalToMs} from &apos;./utils&apos;;
 import {log} from &apos;./log&apos;;
 
 import Big from &apos;big.js&apos;;
@@ -241,6 +245,32 @@ export class BinanceStreamKlines extends BinanceStream {
             }
         );
         return stream;
+    }
+
+    async getHistoryFromTo(startTime, endTime) {
+        const history = new TimeSeriesData(this.interval);
+        const intervalMs = chartIntervalToMs(this.interval);
+        const klines = await this.binance.apiCommand(
+            BinanceCommands.klines,
+            {
+                symbol:     this.symbol,
+                interval:   this.interval,
+                limit:      Math.ceil((endTime - startTime) / intervalMs),
+                // Ensure we get the kline that startTime falls within
+                startTime:  startTime - (startTime % chartIntervalToMs(this.interval)),
+                endTime:    endTime
+            }
+        );
+        let lastTime = 0;
+        for (const kline of klines) {
+            if (kline[0] &lt; lastTime) throw &apos;Klines not oldest to newest.&apos;;
+            lastTime = kline[0];
+            const attrIndex = klinesStreamToRestMap.get(this.attr);
+            const data = Big(kline[attrIndex]);
+            history.addData(lastTime, data);
+        }
+
+        return history;
     }
 
     async getHistory(length) {

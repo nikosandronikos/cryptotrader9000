@@ -39,6 +39,9 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
 </div>
@@ -46,7 +49,7 @@
 
 <div class="content" data-ice="content"><h1 data-ice="title">src/main.mjs</h1>
 <pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">import {BinanceAccess} from &apos;./binance.mjs&apos;;
-import {MultiEMAIndicator} from &apos;./indicator.mjs&apos;;
+import {PriceIndicator, MultiEMAIndicator} from &apos;./indicator.mjs&apos;;
 import {log, LogLevelType} from &apos;./log&apos;;
 
 import Big from &apos;big.js&apos;;
@@ -64,11 +67,13 @@ import Big from &apos;big.js&apos;;
         process.env.BINANCEACCOUNT_KEY,
         process.env.BINANCEACCOUNT_SECRET
     );
-
     const nulsbtc = binance.getCoinPair(&apos;NULS&apos;,&apos;BTC&apos;);
-    const multiEma = await MultiEMAIndicator.createAndInit(binance, nulsbtc, &apos;5m&apos;, [21, 13, 8]);
+    const nulsbtcPrice = await PriceIndicator.createAndInit(
+        binance, nulsbtc.symbol, nulsbtc, &apos;1m&apos;, 20);
+    const multiEma = await MultiEMAIndicator.createAndInit(
+        binance, `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);
 
-    log.notify(`Bot online. Tracking ${multiEma.coinPair.symbol} ${multiEma.interval}.`);
+    log.notify(`Bot online. Tracking ${nulsbtc.symbol} ${nulsbtcPrice.interval}.`);
 
     let buyAt = null;
     let cumulative = new Big(0);
@@ -83,7 +88,7 @@ import Big from &apos;big.js&apos;;
             crossed.findIndex((e) =&gt; e.nPeriods == multiEma.fast)
                 ? &apos;sell&apos; : &apos;buy&apos;;
         message.push(
-            multiEma.coinPair.symbol, multiEma.interval,
+            multiEma.name, multiEma.interval,
             &apos;Fast and slow EMA cross.&apos;,
             `Signal: ${signal}.`,
             `Price: ${price.toString()}.`
@@ -97,10 +102,15 @@ import Big from &apos;big.js&apos;;
                 &apos;Sold. Buy/sell difference: &apos;, diff.toString(),
                 &apos;. Cumulative gain:&apos;, cumulative.toString()
             );
+            buyAt = null;
         }
         log.notify(...message);
     });
-    multiEma.addObserver(&apos;cross&apos;, function() {log.debug(&apos;Cross&apos;);});
+    multiEma.addObserver(&apos;cross&apos;, (crossed, time, price) =&gt; {
+        //if (buyAt == null) return;
+        //const signal =
+        //    crossed.findIndex((e) =&gt; e.nPeriods == 
+    });
     multiEma.addObserver(&apos;update&apos;, function() {log.debug(&apos;Got MultiEMA update&apos;);});
 })();
 </code></pre>
