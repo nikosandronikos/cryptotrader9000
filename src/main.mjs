@@ -10,7 +10,7 @@ import Big from 'big.js';
     await binance.init();
     log.info('  Binance access initialised.');
 
-    log.level = LogLevelType.debug;
+    log.level = LogLevelType.info;
 
     await binance.loadAccount(
         process.env.BINANCEACCOUNT_NAME,
