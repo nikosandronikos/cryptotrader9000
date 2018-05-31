@@ -1,7 +1,5 @@
 import {chartIntervalToMs} from './utils';
 import {ObservableMixin} from './observable';
-import {timeStr} from './utils';
-import {log} from './log';
 
 // Assumes data will be added for all intervals, so we're not optimising for
 // space wrt missing data.

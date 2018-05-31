@@ -17,7 +17,6 @@ import Big from 'big.js';
         process.env.BINANCEACCOUNT_KEY,
         process.env.BINANCEACCOUNT_SECRET
     );
-    debugger;
     const nulsbtc = binance.getCoinPair('NULS','BTC');
     const nulsbtcPrice = await PriceIndicator.createAndInit(
         binance, nulsbtc.symbol, nulsbtc, '1m', 20);

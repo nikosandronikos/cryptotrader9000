@@ -131,8 +131,6 @@ export class EMAIndicator extends Indicator {
     _calculate(time = this.binance.getTimestamp()) {
         const current = this.source.getAt(time);
         if (current === undefined) {
-            debugger;
-            log.debug(current);
             throw new Error('Data missing.');
         }
         // Either last EMA if available or last close price
@@ -305,3 +303,33 @@ export class MultiEMAIndicator extends Indicator {
     }
 }
 
+//export class MACDIndicator extends Indicator {
+//    constructor(binance, coinPair, interval) {
+//        super(binance);
+//        this.interval = interval;
+//        this._emas = [];
+//        this._macdData = new TimeSeriesData(interval);
+//        this._signalData = new TimeSeriesData(interval);
+//    }
+//
+//    async init() {
+//        const history = 20;
+//
+//        this._emas.push(
+//            await EMAIndicator.createAndInit(
+//                this.binance,
+//                this.coinPair,
+//                12,
+//                this.interval,
+//                history
+//            ),
+//            await EMAIndicator.createAndInit(
+//                this.binance,
+//                this.coinPair,
+//                26,
+//                this.interval,
+//                history
+//            )
+//        );
+//    }
+//}
