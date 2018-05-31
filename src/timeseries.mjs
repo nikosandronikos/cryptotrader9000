@@ -130,7 +130,49 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         return this._data[index];
     }
 
-    // eslint-disable-next-line no-unused-vars
-    getRange(startTime, endTime) {
+    /**
+     * Merge data from another TimeSeriesData instance into this one.
+     * @param {TimeSeriesData} other    Another TimeSeriesData instance, created
+     *                                  with the same interval.
+     * @throws {Error}  If the interval of {@link other} doesn't match the
+     *                  interval of this instance.
+     */
+    merge(other) {
+        if (other.intervalMs != this.intervalMs) {
+            throw new Error('Cannot merge due to different intervals.');
+        }
+        if (other._data.length == 0) return;
+
+        const interval = this.intervalMs;
+
+        let insertI = 0;
+
+        if (this.hasData) {
+            insertI = (other.firstTime - this.firstTime) / interval;
+            if (insertI < 0) {
+                // Will extend the start of the array by the number of required
+                // elements, and also fill with the last data value from other.
+                // This ensures that if the values from other don't fill all the way
+                // to the start of the existing data, there's no gaps.
+                this._checkAndFillLeadingData(other.firstTime, other._data[other._data.length-1]);
+                insertI = 0;
+            } else if (insertI > this._data.length) {
+                this._checkAndFillTrailingData(other.firstTime);
+            }
+        }
+
+        // Do the merge
+        for (
+            let i = 0, time = other.firstTime;
+            i < other._data.length;
+            i++, time += interval, insertI++
+        ) {
+            this._data[insertI] = other._data[i];
+        }
+
+        this.firstTime = Math.min(this.firstTime, other.firstTime);
+        this._lastTime = Math.max(this._lastTime, other._lastTime);
+
+        this.hasData = this._data.length > 0;
     }
 }
