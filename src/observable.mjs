@@ -51,24 +51,24 @@
 export const ObservableMixin = superclass => class extends superclass {
     constructor() {
         super(...arguments);
-        this.observers = {};
+        this.observers = new Map();
 
     }
 
     addObserver(event, fn, useThis, ctxt) {
         const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);
-        if (this.observers.hasOwnProperty(event)) {
-            this.observers[event].append(boundFn);
+        if (this.observers.has(event)) {
+            this.observers.get(event).push(boundFn);
             return;
         }
-        this.observers[event] = [boundFn];
+        this.observers.set(event, [boundFn]);
     }
 
     notifyObservers(event, ...args) {
-        if (!this.observers.hasOwnProperty(event))
+        if (!this.observers.has(event))
             return;
 
-        for (let observer of this.observers[event]) {
+        for (let observer of this.observers.get(event)) {
             observer(...args);
         }
     }
