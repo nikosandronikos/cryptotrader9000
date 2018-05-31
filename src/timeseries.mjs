@@ -53,8 +53,10 @@ export class TimeSeriesData extends ObservableMixin(Object) {
 
     /**
      * If a time is given that is prior to the first data sample, then
-     * fill the data from time to the first existing sample.
+     * fill the data from time to the first existing sample, using the
+     * given data value.
      * @param {number} time     Time in milliseconds.
+     * @param          data     The data value to use when filling.
      */
     _checkAndFillLeadingData(time, data) {
         if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);
