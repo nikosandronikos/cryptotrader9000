@@ -100,4 +100,12 @@ export function findCross(a, b, fast, slow, valueFn=(a)=>a) {
     return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};
 }
 
-
+/**
+ * Return a nicely formatted string for a timestamp.
+ * @param {number} timestamp    The timestamp
+ * @returns {string}            A string containing a human readable
+ *                              representation of timestamp.
+ */
+export function timeStr(timestamp) {
+    return new Date(timestamp).toLocaleString();
+}
