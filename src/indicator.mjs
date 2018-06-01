@@ -16,7 +16,6 @@ export class Indicator extends ObservableMixin(Object) {
         super();
         this.binance = binance;
         this.name = name;
-        this.data = null;
         this.interval = interval;
         this.intervalMs = chartIntervalToMs(interval);
     }
@@ -42,7 +41,7 @@ export class PriceIndicator extends SingleIndicator {
     constructor(binance, name, coinPair, interval) {
         super(binance, name, interval);
         this.coinPair = coinPair;
-        this.data = null;
+        this._data = null;
         this._stream = null;
     }
 
@@ -55,11 +54,11 @@ export class PriceIndicator extends SingleIndicator {
             'k.c'   // close price
         );
 
-        this.data = new TimeSeriesData(this.interval);
+        this._data = new TimeSeriesData(this.interval);
 
         // Feed stream data into the TimeSeriesData store
         this.stream.addObserver('newData', (time, data) => {
-            this.data.addData(time, data);
+            this._data.addData(time, data);
             this.notifyObservers('update', time, data);
         });
     }
@@ -74,22 +73,22 @@ export class PriceIndicator extends SingleIndicator {
     async prepHistory(startTime) {
         // Access pattern is to generally use all data following a sample
         // so load everything from startTime onwards.
-        const endTime = this.data.hasData ? this.data.firstTime : this.binance.getTimestamp();
+        const endTime = this._data.hasData ? this._data.firstTime : this.binance.getTimestamp();
         if (endTime  < startTime) return;
         const history = await this.stream.getHistoryFromTo(startTime, endTime);
         log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);
-        this.data.merge(history);
+        this._data.merge(history);
     }
 
     getAt(time) {
-        const data = this.data.getAt(time);
+        const data = this._data.getAt(time);
         if (data == undefined) {
             log.debug(
                 `PriceIndicator ${this.name}. No data for ${timeStr(time)}`+
-                ` ${timeStr(this.data.firstData)}`
+                ` ${timeStr(this._data.firstData)}`
             );
         }
-        return this.data.getAt(time);
+        return this._data.getAt(time);
     }
 }
 
@@ -105,7 +104,7 @@ export class EMAIndicator extends SingleIndicator {
         super(binance, name, source.interval);
         this.nPeriods = nPeriods;
         this.source = source;
-        this.data = new TimeSeriesData(this.interval, (time) => {
+        this._data = new TimeSeriesData(this.interval, (time) => {
             const whichEma = `EMAIndicator(${this.nPeriods})`;
             log.debug(`${whichEma}: Calculating history for ${timeStr(time)}.`);
             this._calculate(time);
@@ -140,14 +139,14 @@ export class EMAIndicator extends SingleIndicator {
             throw new Error('Data missing.');
         }
         // Either last EMA if available or last close price
-        let last = this.data.getAt(time - this.intervalMs);
+        let last = this._data.getAt(time - this.intervalMs);
         if (last === undefined) last = current;
 
         // Weighting for most recent close price.
         const multiplier = Big(2).div(this.nPeriods + 1);
 
         const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);
-        this.data.addData(time, ema);
+        this._data.addData(time, ema);
         this.notifyObservers('update', time, ema, current);
         return ema;
     }
@@ -155,13 +154,13 @@ export class EMAIndicator extends SingleIndicator {
     async prepHistory(startTime) {
         await this.source.prepHistory(startTime);
         log.info(`EMAIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
-        for (let time = startTime; time < this.data.firstTime; time += this.intervalMs) {
+        for (let time = startTime; time < this._data.firstTime; time += this.intervalMs) {
             this._calculate(time);
         }
     }
 
     getAt(time) {
-        return this.data.getAt(time);
+        return this._data.getAt(time);
     }
 }
 
@@ -253,8 +252,8 @@ export class MultiEMAIndicator extends Indicator {
         // index 0 will be fastest EMA, when decreasing index 0 will be slowest.
         // Highest price is index 0.
         newOrder.sort((a,b) => {
-            const aPrice = a.data.getAt(time);
-            const bPrice = b.data.getAt(time);
+            const aPrice = a.getAt(time);
+            const bPrice = b.getAt(time);
 
             if (aPrice === undefined || bPrice === undefined) {
                 throw new Error('MultiEMA: Price data missing.');
