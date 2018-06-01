@@ -79,6 +79,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         if (this._data.length === 0) {
             this._data.push(data);
             this._lastTime = this.firstTime = time;
+            this.notifyObservers('extended', data, time);
         } else if (time > this._lastTime) {
             // Comes after last sample
             this._checkAndFillTrailingData(time - this.intervalMs);
@@ -90,11 +91,12 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             this._checkAndFillLeadingData(time + this.intervalMs, data);
             this._data.unshift(data);
             this.firstTime = time;
+            this.notifyObservers('extendedStart', data, time);
         } else {
             // Overwrites an existing sample.
             const replaceIndex = (time - this.firstTime) / this.intervalMs;
             this._data[replaceIndex] = data;
-            this.notifyObservers('replaceRecent', data, time);
+            this.notifyObservers('replaced', data, time);
         }
 
         this.hasData = this._data.length > 0;
