@@ -25,6 +25,12 @@ export class Indicator extends ObservableMixin(Object) {
     prepHistory(startTime) {
         throw new Error('Implement in sub-class.');
     }
+}
+
+export class SingleIndicator extends Indicator {
+    constructor(binance, name, interval) {
+        super(binance, name, interval);
+    }
 
     // eslint-disable-next-line no-unused-vars
     getAt(time) {
@@ -32,7 +38,7 @@ export class Indicator extends ObservableMixin(Object) {
     }
 }
 
-export class PriceIndicator extends Indicator {
+export class PriceIndicator extends SingleIndicator {
     constructor(binance, name, coinPair, interval) {
         super(binance, name, interval);
         this.coinPair = coinPair;
@@ -87,7 +93,7 @@ export class PriceIndicator extends Indicator {
     }
 }
 
-export class EMAIndicator extends Indicator {
+export class EMAIndicator extends SingleIndicator {
     /**
      * @param {BinanceAccess}   binance     A BinanceAccess object.
      * @param {Indicator}       source      The data source that an EMA
