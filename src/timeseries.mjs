@@ -91,8 +91,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
             this._data.unshift(data);
             this.firstTime = time;
         } else {
-            // If it falls exactly on the interval, overwrites an existing
-            // sample, otherwise an error.
+            // Overwrites an existing sample.
             const replaceIndex = (time - this.firstTime) / this.intervalMs;
             this._data[replaceIndex] = data;
             this.notifyObservers('replaceRecent', data, time);
