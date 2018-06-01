@@ -104,11 +104,7 @@ export class EMAIndicator extends SingleIndicator {
         super(binance, name, source.interval);
         this.nPeriods = nPeriods;
         this.source = source;
-        this._data = new TimeSeriesData(this.interval, (time) => {
-            const whichEma = `EMAIndicator(${this.nPeriods})`;
-            log.debug(`${whichEma}: Calculating history for ${timeStr(time)}.`);
-            this._calculate(time);
-        });
+        this._data = new TimeSeriesData(this.interval);
     }
 
     async init() {
