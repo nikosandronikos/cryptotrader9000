@@ -129,6 +129,17 @@ test('TimeSeriesData: add data miss intervals at start', (t) => {
     t.end();
 });
 
+test('TimeSeriesData: _checkAndFillLeadingData', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const intervalMs = 1 * 60 * 1000;
+
+    ts.addData(intervalMs * 5, 1);
+    ts._checkAndFillLeadingData(intervalMs * 5 - 1, 2);
+    t.deepEqual(ts._data, [2, 1]);
+
+    t.end();
+});
+
 test('TimeSeriesData: getAt', (t) => {
     const ts = new TimeSeriesData('1m');
     const intervalMs = 1 * 60 * 1000;
