@@ -42,7 +42,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         const gap = time - this._lastTime;
         if (gap < this.intervalMs) return;
         const nMissing = Math.ceil(gap / this.intervalMs);
-        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
         this._data = this._data.concat(
             new Array(nMissing).fill(this._data[this._data.length - 1])
         );
@@ -61,7 +60,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         const gap = this.firstTime - time;
         if (gap < this.intervalMs) return;
         const nMissing = Math.ceil(gap / this.intervalMs);
-        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);
         this._data = new Array(nMissing).fill(data).concat(this._data);
         this.firstTime = time;
     }
