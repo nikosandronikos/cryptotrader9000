@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <base data-ice="baseUrl" href="../../">
-  <title data-ice="title">EMAIndicator | cryptotrader9000</title>
+  <title data-ice="title">PriceIndicator | cryptotrader9000</title>
   <link type="text/css" rel="stylesheet" href="css/style.css">
   <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
   <script src="script/prettify/prettify.js"></script>
@@ -49,23 +49,23 @@
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {EMAIndicator} from &apos;<span><a href="file/src/indicator.mjs.html#lineNumber140">cryptotrader9000/src/indicator.mjs</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {PriceIndicator} from &apos;<span><a href="file/src/indicator.mjs.html#lineNumber44">cryptotrader9000/src/indicator.mjs</a></span>&apos;</code></pre></div>
   <span data-ice="access">public</span>
   <span data-ice="kind">class</span>
   
   
   
-  <span data-ice="source">| <span><a href="file/src/indicator.mjs.html#lineNumber140">source</a></span></span>
+  <span data-ice="source">| <span><a href="file/src/indicator.mjs.html#lineNumber44">source</a></span></span>
 </div>
 
 <div class="self-detail detail">
-  <h1 data-ice="name">EMAIndicator</h1>
+  <h1 data-ice="name">PriceIndicator</h1>
 
   
 
   
   
-  <div class="flat-list" data-ice="extendsChain"><h4>Extends:</h4><div><span>Object</span> &#x2192; <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span> &#x2192; <span><a href="class/src/indicator.mjs~SingleIndicator.html">SingleIndicator</a></span> &#x2192; EMAIndicator</div></div>
+  <div class="flat-list" data-ice="extendsChain"><h4>Extends:</h4><div><span>Object</span> &#x2192; <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span> &#x2192; <span><a href="class/src/indicator.mjs~SingleIndicator.html">SingleIndicator</a></span> &#x2192; PriceIndicator</div></div>
   
   
   
@@ -106,13 +106,13 @@
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#static-method-createAndInit">createAndInit</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, source: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, nPeriods: <span>number</span>): <span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#static-method-createAndInit">createAndInit</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, coinPair: <span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span>, interval: <span>string</span>): <span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span>
         </p>
       </div>
       <div>
         
         
-        <div data-ice="description"><p>A helper method to create and initialise the indicator instance.</p>
+        <div data-ice="description"><p>A helper method to create and initialise a PriceIndcator instance.</p>
 </div>
       </div>
     </td>
@@ -142,13 +142,13 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, source: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, nPeriods: <span>number</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, coinPair: <span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span>, interval: <span>string</span>)</span>
         </p>
       </div>
       <div>
         
         
-        <div data-ice="description"><p>Create an EMAIndicator instance.</p>
+        <div data-ice="description"><p>Create a PriceIndicator instance.</p>
 </div>
       </div>
     </td>
@@ -178,7 +178,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-member-nPeriods">nPeriods</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#instance-member-coinPair">coinPair</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
         </p>
       </div>
       <div>
@@ -206,7 +206,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-member-source">source</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#instance-member-stream">stream</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
         </p>
       </div>
       <div>
@@ -241,7 +241,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-method-getAt">getAt</a></span></span><span class="code" data-ice="signature">(time: <span>number</span>): <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#instance-method-getAt">getAt</a></span></span><span class="code" data-ice="signature">(time: <span>number</span>): <span>*</span></span>
         </p>
       </div>
       <div>
@@ -270,13 +270,13 @@
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-method-init">init</a></span></span><span class="code" data-ice="signature">()</span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#instance-method-init">init</a></span></span><span class="code" data-ice="signature">()</span>
         </p>
       </div>
       <div>
         
         
-        <div data-ice="description"><p>Prepare the indicator for use.</p>
+        <div data-ice="description"><p>Prepare a PriceIndicator for use.</p>
 </div>
       </div>
     </td>
@@ -299,13 +299,13 @@
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~EMAIndicator.html#instance-method-prepHistory">prepHistory</a></span></span><span class="code" data-ice="signature">(startTime: <span>number</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html#instance-method-prepHistory">prepHistory</a></span></span><span class="code" data-ice="signature">(startTime: <span>number</span>)</span>
         </p>
       </div>
       <div>
         
         
-        <div data-ice="description"><p>Ensure this EMAIndicator instance has historical data from startTime
+        <div data-ice="description"><p>Ensure this PriceIndicator instance has historical data from startTime
 to the current time.</p>
 </div>
       </div>
@@ -366,18 +366,18 @@ to the current time.</p>
     
     <span data-ice="async">async</span>
     
-    <span class="code" data-ice="name">createAndInit</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, source: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, nPeriods: <span>number</span>): <span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></span>
+    <span class="code" data-ice="name">createAndInit</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, coinPair: <span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span>, interval: <span>string</span>): <span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber189">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber98">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  <div data-ice="description"><p>A helper method to create and initialise the indicator instance.</p>
+  <div data-ice="description"><p>A helper method to create and initialise a PriceIndcator instance.</p>
 </div>
 
   
@@ -405,19 +405,20 @@ to the current time.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">source</td>
-      <td data-ice="type" class="code"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></td>
+      <td data-ice="name" class="code" data-depth="0">coinPair</td>
+      <td data-ice="type" class="code"><span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The data source that an EMA
-                                     is calculated for.</p>
+      <td data-ice="description"><p>A pair of coins - the price value
+                                     of the indicator is the quote price
+                                     for the pair.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">nPeriods</td>
-      <td data-ice="type" class="code"><span>number</span></td>
+      <td data-ice="name" class="code" data-depth="0">interval</td>
+      <td data-ice="type" class="code"><span>string</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The number of periods over which to
-                                     calculate the EMA.</p>
+      <td data-ice="description"><p>The interval for the indicator
+                                     in string form (see <span>chartIntervalToMs</span>.</p>
 </td>
     </tr>
 </tbody>
@@ -430,7 +431,7 @@ to the current time.</p>
     <table>
       <tbody>
         <tr>
-          <td class="return-type code" data-ice="returnType"><span><a href="class/src/indicator.mjs~EMAIndicator.html">EMAIndicator</a></span></td>
+          <td class="return-type code" data-ice="returnType"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></td>
           <td class="return-desc" data-ice="returnDescription"><p>An instance that is ready to use.</p>
 </td>
         </tr>
@@ -466,20 +467,20 @@ to the current time.</p>
     
     
     
-    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, source: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, nPeriods: <span>number</span>)</span>
+    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, coinPair: <span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span>, interval: <span>string</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber152">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber57">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  <div data-ice="description"><p>Create an EMAIndicator instance. init must be called before use.
+  <div data-ice="description"><p>Create a PriceIndicator instance. init must be called before use.
 Typically, the helper function <span><a href="class/src/indicator.mjs~PriceIndicator.html#static-method-createAndInit">createAndInit</a></span> should be used
-to any instances.</p>
+to create PriceIndicator instances.</p>
 </div>
 
   <div data-ice="override"><h4>Override:</h4><span><a href="class/src/indicator.mjs~SingleIndicator.html#instance-constructor-constructor">SingleIndicator#constructor</a></span></div>
@@ -507,19 +508,20 @@ to any instances.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">source</td>
-      <td data-ice="type" class="code"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></td>
+      <td data-ice="name" class="code" data-depth="0">coinPair</td>
+      <td data-ice="type" class="code"><span><a href="class/src/coin.mjs~CoinPair.html">CoinPair</a></span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The data source that an EMA
-                                     is calculated for.</p>
+      <td data-ice="description"><p>A pair of coins - the price value
+                                     of the indicator is the quote price
+                                     for the pair.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">nPeriods</td>
-      <td data-ice="type" class="code"><span>number</span></td>
+      <td data-ice="name" class="code" data-depth="0">interval</td>
+      <td data-ice="type" class="code"><span>string</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The number of periods over which to
-                                     calculate the EMA.</p>
+      <td data-ice="description"><p>The interval for the indicator
+                                     in string form (see <span>chartIntervalToMs</span>.</p>
 </td>
     </tr>
 </tbody>
@@ -548,18 +550,18 @@ to any instances.</p>
 <div data-ice="memberDetails"><h2 data-ice="title">Public Members</h2>
 
 <div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-nPeriods">
+  <h3 data-ice="anchor" id="instance-member-coinPair">
     <span class="access" data-ice="access">public</span>
     
     
     
     
     
-    <span class="code" data-ice="name">nPeriods</span><span class="code" data-ice="signature">: <span>*</span></span>
+    <span class="code" data-ice="name">coinPair</span><span class="code" data-ice="signature">: <span>*</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber154">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber59">source</a></span></span>
     </span>
   </h3>
 
@@ -591,18 +593,18 @@ to any instances.</p>
   
 </div>
 <div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-source">
+  <h3 data-ice="anchor" id="instance-member-stream">
     <span class="access" data-ice="access">public</span>
     
     
     
     
     
-    <span class="code" data-ice="name">source</span><span class="code" data-ice="signature">: <span>*</span></span>
+    <span class="code" data-ice="name">stream</span><span class="code" data-ice="signature">: <span>*</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber155">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber71">source</a></span></span>
     </span>
   </h3>
 
@@ -648,7 +650,7 @@ to any instances.</p>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber234">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber127">source</a></span></span>
     </span>
   </h3>
 
@@ -722,14 +724,14 @@ to any instances.</p>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber164">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber69">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  <div data-ice="description"><p>Prepare the indicator for use.
+  <div data-ice="description"><p>Prepare a PriceIndicator for use.
 This method establishes the required network connections to gather
 price data.</p>
 </div>
@@ -768,14 +770,14 @@ price data.</p>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber221">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber112">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  <div data-ice="description"><p>Ensure this EMAIndicator instance has historical data from startTime
+  <div data-ice="description"><p>Ensure this PriceIndicator instance has historical data from startTime
 to the current time.
 Call this method prior to retreiving data for any time value before
 the creation time of this instance.</p>

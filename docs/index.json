@@ -1332,7 +1332,7 @@
     "__docId__": 63,
     "kind": "file",
     "name": "src/indicator.mjs",
-    "content": "import Big from 'big.js';\nimport {ObservableMixin} from './observable';\nimport {BinanceStreamKlines} from './binancestream.mjs';\nimport {TimeSeriesData} from './timeseries';\nimport {findCross, chartIntervalToMs, timeStr} from './utils';\nimport {log} from './log';\n\nBig.DP = 8;\n\nconst emaHistoryLength = 20;\n\n// Will update based on ticker.\n// But will also need historical data.\nexport class Indicator extends ObservableMixin(Object) {\n    constructor(binance, name, interval) {\n        super();\n        this.binance = binance;\n        this.name = name;\n        this.data = null;\n        this.interval = interval;\n        this.intervalMs = chartIntervalToMs(interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    prepHistory(startTime) {\n        throw new Error('Implement in sub-class.');\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAt(time) {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class PriceIndicator extends Indicator {\n    constructor(binance, name, coinPair, interval) {\n        super(binance, name, interval);\n        this.coinPair = coinPair;\n        this.data = null;\n        this._stream = null;\n    }\n\n    async init() {\n        // Set up stream\n        this.stream = await BinanceStreamKlines.create(\n            this.binance,\n            this.coinPair.symbol,\n            this.interval,\n            'k.c'   // close price\n        );\n\n        this.data = new TimeSeriesData(this.interval);\n\n        // Feed stream data into the TimeSeriesData store\n        this.stream.addObserver('newData', (time, data) => {\n            this.data.addData(time, data);\n            this.notifyObservers('update', time, data);\n        });\n    }\n\n    static async createAndInit(binance, name, coinPair, interval) {\n        log.info(`Creating PriceIndicator for ${name} ${interval}`);\n        const ind = new PriceIndicator(binance, name, coinPair, interval);\n        await ind.init();\n        return ind;\n    }\n\n    async prepHistory(startTime) {\n        // Access pattern is to generally use all data following a sample\n        // so load everything from startTime onwards.\n        const endTime = this.data.hasData ? this.data.firstTime : this.binance.getTimestamp();\n        if (endTime  < startTime) return;\n        const history = await this.stream.getHistoryFromTo(startTime, endTime);\n        log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);\n        this.data.merge(history);\n    }\n\n    getAt(time) {\n        const data = this.data.getAt(time);\n        if (data == undefined) {\n            log.debug(\n                `PriceIndicator ${this.name}. No data for ${timeStr(time)}`+\n                ` ${timeStr(this.data.firstData)}`\n            );\n        }\n        return this.data.getAt(time);\n    }\n}\n\nexport class EMAIndicator extends Indicator {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {Indicator}       source      The data source that an EMA\n     *                                      is calculated for.\n     * @param {number}          nPeriods    The number of periods over which to\n     *                                      calculate the EMA.\n     */\n    constructor(binance, name, source, nPeriods) {\n        super(binance, name, source.interval);\n        this.nPeriods = nPeriods;\n        this.source = source;\n        this.data = new TimeSeriesData(this.interval, (time) => {\n            const whichEma = `EMAIndicator(${this.nPeriods})`;\n            log.debug(`${whichEma}: Calculating history for ${timeStr(time)}.`);\n            this._calculate(time);\n        });\n    }\n\n    async init() {\n        const currentTime = this.binance.getTimestamp();\n        const historyStart = currentTime - emaHistoryLength * this.intervalMs;\n        await this.prepHistory(historyStart);\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug(`EMAIndicator ${this.name}: Calculating historic values`);\n        for (let time = historyStart; time < currentTime; time += this.intervalMs) {\n            this._calculate(time);\n        }\n\n        // eslint-disable-next-line no-unused-vars\n        this.source.addObserver('update', (time, data) => this._calculate(time));\n    }\n\n    static async createAndInit(binance, name, source, nPeriods) {\n        log.info(`Creating EMAIndicator for ${name} (${nPeriods}) ${source.interval}`);\n        const ema = new EMAIndicator(binance, name, source, nPeriods);\n        await ema.init();\n        return ema;\n    }\n\n    _calculate(time = this.binance.getTimestamp()) {\n        const current = this.source.getAt(time);\n        if (current === undefined) {\n            throw new Error('Data missing.');\n        }\n        // Either last EMA if available or last close price\n        let last = this.data.getAt(time - this.intervalMs);\n        if (last === undefined) last = current;\n\n        // Weighting for most recent close price.\n        const multiplier = Big(2).div(this.nPeriods + 1);\n\n        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);\n        this.data.addData(time, ema);\n        this.notifyObservers('update', time, ema, current);\n        return ema;\n    }\n\n    async prepHistory(startTime) {\n        await this.source.prepHistory(startTime);\n        log.info(`EMAIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);\n        for (let time = startTime; time < this.data.firstTime; time += this.intervalMs) {\n            this._calculate(time);\n        }\n    }\n\n    getAt(time) {\n        return this.data.getAt(time);\n    }\n}\n\nexport class MultiIndicator extends Indicator {\n    constructor(binance, name, interval) {\n        super(binance, name, interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAll(time) {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class MultiEMAIndicator extends Indicator {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {Indicator}       emaSource   The source of data for calculating\n     *                                      each EMA in the set.\n     * @param {Array}           lengths     An array containing the period for\n     *                                      each EMA in the set.\n     *                                      The number of values in this array\n     *                                      indicates how many EMAIndicators\n     *                                      are included in the set.\n     */\n    constructor(binance, name, emaSource, lengths) {\n        super(binance, name, emaSource.interval);\n        this._emaSource = emaSource;\n        this.lengths = lengths;\n        this.lengths.sort((a,b) => b - a);\n        this.emas = [];\n        this.orderedEmas = null;\n        this.currentTime = 0;\n        this.nUpdates = 0;\n        this.currentPrice = null;\n        this.slow = Math.max(...lengths);\n        this.fast = Math.min(...lengths);\n    }\n\n    async init() {\n        const currentTime = this.binance.getTimestamp();\n        const historyStart = currentTime - emaHistoryLength * this.intervalMs;\n\n        for (const length of this.lengths) {\n            const ema = await EMAIndicator.createAndInit(\n                this.binance,\n                `${this.name} EMA(${length})`,\n                this._emaSource,\n                length,\n            );\n            await ema.prepHistory(historyStart);\n            this.emas.push(ema);\n        }\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug('MultiEMA: Calculating historic values');\n        for (\n            let time = historyStart;\n            time < currentTime;\n            time += this.intervalMs\n        ) {\n            this._update(time);\n        }\n\n        for (const ema of this.emas) {\n            // FIXME: Should this just be closed prices?\n            // eslint-disable-next-line no-unused-vars\n            ema.addObserver('update', (time, ema, price) => {\n                if (time > this.currentTime) {\n                    this.currentTime = time;\n                    this.nUpdates = 0;\n                }\n                this.currentPrice = price;\n                this.nUpdates ++;\n                if (this.nUpdates == this.lengths.length) {\n                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);\n                    this._update(time);\n                }\n            });\n        }\n    }\n\n    _update(time) {\n        const newOrder = [];\n\n        for (const ema of this.emas) newOrder.push(ema);\n\n        // Currently in visual order - when price increasing\n        // index 0 will be fastest EMA, when decreasing index 0 will be slowest.\n        // Highest price is index 0.\n        newOrder.sort((a,b) => {\n            const aPrice = a.data.getAt(time);\n            const bPrice = b.data.getAt(time);\n\n            if (aPrice === undefined || bPrice === undefined) {\n                throw new Error('MultiEMA: Price data missing.');\n            }\n\n            const priceCmp = bPrice.cmp(aPrice);\n            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;\n        });\n\n        if (this.orderedEmas === null) {\n            this.orderedEmas = newOrder;\n            return;\n        }\n\n        this.notifyObservers('update');\n\n        const cross = findCross(\n            this.orderedEmas, newOrder, this.fast, this.slow, (a) => a.nPeriods\n        );\n        this.orderedEmas = newOrder;\n\n        if (cross.crossed.length == 0) return;\n\n        if (cross.fastSlowCross) {\n            // FIXME: Should we provide prices of emas?\n            // Current price might be even more useful.\n            this.notifyObservers('fastSlowCross', cross.crossed, time, this.currentPrice);\n            return;\n        }\n\n        this.notifyObservers('cross', cross.crossed, time, this.currentPrice);\n    }\n\n    static async createAndInit(binance, name, emaSource, lengths) {\n        log.info(`Creating MultiEMAIndicator ${name} (${emaSource.interval}) ${lengths}`);\n        const ind = new MultiEMAIndicator(binance, name, emaSource, lengths);\n        await ind.init();\n        return ind;\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAt(time) {\n        // FIXME: What would be a useful single value to return here?\n    }\n\n    getAll(time) {\n        const results = [];\n        for (const ema of this.emas) {\n            results.push(ema.getAt(time));\n        }\n        return results;\n    }\n}\n\n//export class MACDIndicator extends Indicator {\n//    constructor(binance, coinPair, interval) {\n//        super(binance);\n//        this.interval = interval;\n//        this._emas = [];\n//        this._macdData = new TimeSeriesData(interval);\n//        this._signalData = new TimeSeriesData(interval);\n//    }\n//\n//    async init() {\n//        const history = 20;\n//\n//        this._emas.push(\n//            await EMAIndicator.createAndInit(\n//                this.binance,\n//                this.coinPair,\n//                12,\n//                this.interval,\n//                history\n//            ),\n//            await EMAIndicator.createAndInit(\n//                this.binance,\n//                this.coinPair,\n//                26,\n//                this.interval,\n//                history\n//            )\n//        );\n//    }\n//}\n",
+    "content": "import Big from 'big.js';\nimport {ObservableMixin} from './observable';\nimport {BinanceStreamKlines} from './binancestream.mjs';\nimport {TimeSeriesData} from './timeseries';\nimport {findCross, chartIntervalToMs, timeStr} from './utils';\nimport {log} from './log';\n\nBig.DP = 8;\n\nconst emaHistoryLength = 20;\n\nexport class Indicator extends ObservableMixin(Object) {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {string}          interval    The interval for the indicator\n     *                                      in string form (see {@link chartIntervalToMs}.\n     */\n    constructor(binance, name, interval) {\n        super();\n        this.binance = binance;\n        this.name = name;\n        this.interval = interval;\n        this.intervalMs = chartIntervalToMs(interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    prepHistory(startTime) {\n        throw new Error('Implement in sub-class.');\n    }\n}\n\nexport class SingleIndicator extends Indicator {\n    constructor(binance, name, interval) {\n        super(binance, name, interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAt(time) {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class PriceIndicator extends SingleIndicator {\n    /**\n     * Create a PriceIndicator instance. init must be called before use.\n     * Typically, the helper function {@link createAndInit} should be used\n     * to create PriceIndicator instances.\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {CoinPair}        coinPair    A pair of coins - the price value\n     *                                      of the indicator is the quote price\n     *                                      for the pair.\n     * @param {string}          interval    The interval for the indicator\n     *                                      in string form (see {@link chartIntervalToMs}.\n     */\n    constructor(binance, name, coinPair, interval) {\n        super(binance, name, interval);\n        this.coinPair = coinPair;\n        this._data = null;\n        this._stream = null;\n    }\n\n    /**\n     * Prepare a PriceIndicator for use.\n     * This method establishes the required network connections to gather\n     * price data.\n     */\n    async init() {\n        // Set up stream\n        this.stream = await BinanceStreamKlines.create(\n            this.binance,\n            this.coinPair.symbol,\n            this.interval,\n            'k.c'   // close price\n        );\n\n        this._data = new TimeSeriesData(this.interval);\n\n        // Feed stream data into the TimeSeriesData store\n        this.stream.addObserver('newData', (time, data) => {\n            this._data.addData(time, data);\n            this.notifyObservers('update', time, data);\n        });\n    }\n\n    /**\n     * A helper method to create and initialise a PriceIndcator instance.\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {CoinPair}        coinPair    A pair of coins - the price value\n     *                                      of the indicator is the quote price\n     *                                      for the pair.\n     * @param {string}          interval    The interval for the indicator\n     *                                      in string form (see {@link chartIntervalToMs}.\n     * @returns {PriceIndicator} An instance that is ready to use.\n     */\n    static async createAndInit(binance, name, coinPair, interval) {\n        log.info(`Creating PriceIndicator for ${name} ${interval}`);\n        const ind = new PriceIndicator(binance, name, coinPair, interval);\n        await ind.init();\n        return ind;\n    }\n\n    /**\n     * Ensure this PriceIndicator instance has historical data from startTime\n     * to the current time.\n     * Call this method prior to retreiving data for any time value before\n     * the creation time of this instance.\n     * @param {number}  startTime   The earliest required data.\n     */\n    async prepHistory(startTime) {\n        // Access pattern is to generally use all data following a sample\n        // so load everything from startTime onwards.\n        const endTime = this._data.hasData ? this._data.firstTime : this.binance.getTimestamp();\n        if (endTime  < startTime) return;\n        const history = await this.stream.getHistoryFromTo(startTime, endTime);\n        log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);\n        this._data.merge(history);\n    }\n\n    /**\n     * Get the indicator value for {@link time}.\n     * @param {number}  time    A timestamp in ms.\n     * @returns         The data value for the requested time.\n     */\n    getAt(time) {\n        const data = this._data.getAt(time);\n        if (data == undefined) {\n            log.debug(\n                `PriceIndicator ${this.name}. No data for ${timeStr(time)}`+\n                ` ${timeStr(this._data.firstData)}`\n            );\n            throw new Error(`${this.name} has no data for ${timeStr(time)} (${time}`);\n        }\n        return this._data.getAt(time);\n    }\n}\n\nexport class EMAIndicator extends SingleIndicator {\n    /**\n     * Create an EMAIndicator instance. init must be called before use.\n     * Typically, the helper function {@link createAndInit} should be used\n     * to any instances.\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {Indicator}       source      The data source that an EMA\n     *                                      is calculated for.\n     * @param {number}          nPeriods    The number of periods over which to\n     *                                      calculate the EMA.\n     */\n    constructor(binance, name, source, nPeriods) {\n        super(binance, name, source.interval);\n        this.nPeriods = nPeriods;\n        this.source = source;\n        this._data = new TimeSeriesData(this.interval);\n    }\n\n    /**\n     * Prepare the indicator for use.\n     * This method establishes the required network connections to gather\n     * price data.\n     */\n    async init() {\n        const currentTime = this.binance.getTimestamp();\n        const historyStart = currentTime - emaHistoryLength * this.intervalMs;\n        await this.prepHistory(historyStart);\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug(`EMAIndicator ${this.name}: Calculating historic values`);\n        for (let time = historyStart; time < currentTime; time += this.intervalMs) {\n            this._calculate(time);\n        }\n\n        // eslint-disable-next-line no-unused-vars\n        this.source.addObserver('update', (time, data) => this._calculate(time));\n    }\n\n    /**\n     * A helper method to create and initialise the indicator instance.\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {Indicator}       source      The data source that an EMA\n     *                                      is calculated for.\n     * @param {number}          nPeriods    The number of periods over which to\n     *                                      calculate the EMA.\n     * @returns {EMAIndicator}  An instance that is ready to use.\n     */\n    static async createAndInit(binance, name, source, nPeriods) {\n        log.info(`Creating EMAIndicator for ${name} (${nPeriods}) ${source.interval}`);\n        const ema = new EMAIndicator(binance, name, source, nPeriods);\n        await ema.init();\n        return ema;\n    }\n\n    _calculate(time = this.binance.getTimestamp()) {\n        const current = this.source.getAt(time);\n        if (current === undefined) {\n            throw new Error('Data missing.');\n        }\n        // Either last EMA if available or last close price\n        let last = this._data.getAt(time - this.intervalMs);\n        if (last === undefined) last = current;\n\n        // Weighting for most recent close price.\n        const multiplier = Big(2).div(this.nPeriods + 1);\n\n        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);\n        this._data.addData(time, ema);\n        this.notifyObservers('update', time, ema, current);\n        return ema;\n    }\n\n    /**\n     * Ensure this EMAIndicator instance has historical data from startTime\n     * to the current time.\n     * Call this method prior to retreiving data for any time value before\n     * the creation time of this instance.\n     * @param {number}  startTime   The earliest required data.\n     */\n    async prepHistory(startTime) {\n        await this.source.prepHistory(startTime);\n        log.info(`EMAIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);\n        for (let time = startTime; time < this._data.firstTime; time += this.intervalMs) {\n            this._calculate(time);\n        }\n    }\n\n    /**\n     * Get the indicator value for {@link time}.\n     * @param {number}  time    A timestamp in ms.\n     * @returns         The data value for the requested time.\n     */\n    getAt(time) {\n        return this._data.getAt(time);\n    }\n}\n\n/**\n * An interface for a composite indicator - one made up from multiple\n * single indicators.\n */\nexport class MultiIndicator extends Indicator {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {string}          interval    The interval for the indicator\n     *                                      in string form (see {@link chartIntervalToMs}.\n     */\n    constructor(binance, name, interval) {\n        super(binance, name, interval);\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAll(time) {\n        throw 'Implement in sub-class.';\n    }\n}\n\nexport class MultiEMAIndicator extends Indicator {\n    /**\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {Indicator}       emaSource   The source of data for calculating\n     *                                      each EMA in the set.\n     * @param {Array}           lengths     An array containing the period for\n     *                                      each EMA in the set.\n     *                                      The number of values in this array\n     *                                      indicates how many EMAIndicators\n     *                                      are included in the set.\n     */\n    constructor(binance, name, emaSource, lengths) {\n        super(binance, name, emaSource.interval);\n        this._emaSource = emaSource;\n        this.lengths = lengths;\n        this.lengths.sort((a,b) => b - a);\n        this.emas = [];\n        this.orderedEmas = null;\n        this.currentTime = 0;\n        this.nUpdates = 0;\n        this.currentPrice = null;\n        this.slow = Math.max(...lengths);\n        this.fast = Math.min(...lengths);\n    }\n\n    /**\n     * Prepare the indicator for use.\n     * This method establishes the required network connections to gather\n     * price data.\n     */\n    async init() {\n        const currentTime = this.binance.getTimestamp();\n        const historyStart = currentTime - emaHistoryLength * this.intervalMs;\n\n        for (const length of this.lengths) {\n            const ema = await EMAIndicator.createAndInit(\n                this.binance,\n                `${this.name} EMA(${length})`,\n                this._emaSource,\n                length,\n            );\n            await ema.prepHistory(historyStart);\n            this.emas.push(ema);\n        }\n\n        // Calculate recent values so that EMAs stabilise.\n        log.debug('MultiEMA: Calculating historic values');\n        for (\n            let time = historyStart;\n            time < currentTime;\n            time += this.intervalMs\n        ) {\n            this._update(time);\n        }\n\n        for (const ema of this.emas) {\n            // FIXME: Should this just be closed prices?\n            // eslint-disable-next-line no-unused-vars\n            ema.addObserver('update', (time, ema, price) => {\n                if (time > this.currentTime) {\n                    this.currentTime = time;\n                    this.nUpdates = 0;\n                }\n                this.currentPrice = price;\n                this.nUpdates ++;\n                if (this.nUpdates == this.lengths.length) {\n                    log.debug(`MultiEMA: Got all ${this.nUpdates} for ${this.currentTime}`);\n                    this._update(time);\n                }\n            });\n        }\n    }\n\n    _update(time) {\n        const newOrder = [];\n\n        for (const ema of this.emas) newOrder.push(ema);\n\n        // Currently in visual order - when price increasing\n        // index 0 will be fastest EMA, when decreasing index 0 will be slowest.\n        // Highest price is index 0.\n        newOrder.sort((a,b) => {\n            const aPrice = a.getAt(time);\n            const bPrice = b.getAt(time);\n\n            if (aPrice === undefined || bPrice === undefined) {\n                throw new Error('MultiEMA: Price data missing.');\n            }\n\n            const priceCmp = bPrice.cmp(aPrice);\n            return priceCmp == 0 ? a.nPeriods - b.nPeriods : priceCmp;\n        });\n\n        if (this.orderedEmas === null) {\n            this.orderedEmas = newOrder;\n            return;\n        }\n\n        this.notifyObservers('update');\n\n        const cross = findCross(\n            this.orderedEmas, newOrder, this.fast, this.slow, (a) => a.nPeriods\n        );\n        this.orderedEmas = newOrder;\n\n        if (cross.crossed.length == 0) return;\n\n        if (cross.fastSlowCross) {\n            // FIXME: Should we provide prices of emas?\n            // Current price might be even more useful.\n            this.notifyObservers('fastSlowCross', cross.crossed, time, this.currentPrice);\n            return;\n        }\n\n        this.notifyObservers('cross', cross.crossed, time, this.currentPrice);\n    }\n\n    /**\n     * A helper method to create and initialise a MultiEMAIndcator instance.\n     * @param {BinanceAccess}   binance     A BinanceAccess object.\n     * @param {string}          name        A name for the indicator.\n     * @param {Indicator}       emaSource   The source of data for calculating\n     *                                      each EMA in the set.\n     * @param {Array}           lengths     An array containing the period for\n     *                                      each EMA in the set.\n     *                                      The number of values in this array\n     *                                      indicates how many EMAIndicators\n     *                                      are included in the set.\n     * @returns {MultiEMAIndicator} An instance that is ready to use.\n     */\n    static async createAndInit(binance, name, emaSource, lengths) {\n        log.info(`Creating MultiEMAIndicator ${name} (${emaSource.interval}) ${lengths}`);\n        const ind = new MultiEMAIndicator(binance, name, emaSource, lengths);\n        await ind.init();\n        return ind;\n    }\n\n    // eslint-disable-next-line no-unused-vars\n    getAt(time) {\n        // FIXME: What would be a useful single value to return here?\n    }\n\n    /**\n     * Get the values for all sub indicators for {@link time}.\n     * @param {number}  time    A timestamp in ms.\n     * @returns {Array}         An array containing the data values for the\n     *                          requested time.\n     */\n    getAll(time) {\n        const results = [];\n        for (const ema of this.emas) {\n            results.push(ema.getAt(time));\n        }\n        return results;\n    }\n}\n\n//export class MACDIndicator extends Indicator {\n//    constructor(binance, coinPair, interval) {\n//        super(binance);\n//        this.interval = interval;\n//        this._emas = [];\n//        this._macdData = new TimeSeriesData(interval);\n//        this._signalData = new TimeSeriesData(interval);\n//    }\n//\n//    async init() {\n//        const history = 20;\n//\n//        this._emas.push(\n//            await EMAIndicator.createAndInit(\n//                this.binance,\n//                this.coinPair,\n//                12,\n//                this.interval,\n//                history\n//            ),\n//            await EMAIndicator.createAndInit(\n//                this.binance,\n//                this.coinPair,\n//                26,\n//                this.interval,\n//                history\n//            )\n//        );\n//    }\n//}\n",
     "static": true,
     "longname": "/home/nikos/Documents/code/cryptotrader9000/src/indicator.mjs",
     "access": "public",
@@ -1372,7 +1372,7 @@
     "importPath": "cryptotrader9000/src/indicator.mjs",
     "importStyle": "{Indicator}",
     "description": null,
-    "lineNumber": 14,
+    "lineNumber": 12,
     "undocument": true,
     "interface": false,
     "expressionExtends": "ObservableMixin(Object)",
@@ -1383,16 +1383,16 @@
   {
     "__docId__": 66,
     "kind": "class",
-    "name": "PriceIndicator",
+    "name": "SingleIndicator",
     "memberof": "src/indicator.mjs",
     "static": true,
-    "longname": "src/indicator.mjs~PriceIndicator",
+    "longname": "src/indicator.mjs~SingleIndicator",
     "access": "public",
     "export": true,
     "importPath": "cryptotrader9000/src/indicator.mjs",
-    "importStyle": "{PriceIndicator}",
+    "importStyle": "{SingleIndicator}",
     "description": null,
-    "lineNumber": 35,
+    "lineNumber": 33,
     "undocument": true,
     "interface": false,
     "extends": [
@@ -1403,181 +1403,28 @@
     "__docId__": 67,
     "kind": "constructor",
     "name": "constructor",
-    "memberof": "src/indicator.mjs~PriceIndicator",
+    "memberof": "src/indicator.mjs~SingleIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#constructor",
+    "longname": "src/indicator.mjs~SingleIndicator#constructor",
     "access": "public",
     "description": null,
-    "lineNumber": 36,
+    "lineNumber": 34,
     "undocument": true
   },
   {
     "__docId__": 68,
-    "kind": "member",
-    "name": "coinPair",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#coinPair",
-    "access": "public",
-    "description": null,
-    "lineNumber": 38,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 69,
-    "kind": "member",
-    "name": "data",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#data",
-    "access": "public",
-    "description": null,
-    "lineNumber": 39,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 70,
-    "kind": "member",
-    "name": "_stream",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#_stream",
-    "access": "private",
-    "description": null,
-    "lineNumber": 40,
-    "undocument": true,
-    "ignore": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 71,
-    "kind": "method",
-    "name": "init",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "generator": false,
-    "async": true,
-    "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#init",
-    "access": "public",
-    "description": null,
-    "lineNumber": 43,
-    "undocument": true,
-    "params": [],
-    "return": null
-  },
-  {
-    "__docId__": 72,
-    "kind": "member",
-    "name": "stream",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#stream",
-    "access": "public",
-    "description": null,
-    "lineNumber": 45,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 74,
-    "kind": "method",
-    "name": "createAndInit",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "generator": false,
-    "async": true,
-    "static": true,
-    "longname": "src/indicator.mjs~PriceIndicator.createAndInit",
-    "access": "public",
-    "description": null,
-    "lineNumber": 61,
-    "undocument": true,
-    "params": [
-      {
-        "name": "binance",
-        "types": [
-          "*"
-        ]
-      },
-      {
-        "name": "name",
-        "types": [
-          "*"
-        ]
-      },
-      {
-        "name": "coinPair",
-        "types": [
-          "*"
-        ]
-      },
-      {
-        "name": "interval",
-        "types": [
-          "*"
-        ]
-      }
-    ],
-    "return": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 75,
-    "kind": "method",
-    "name": "prepHistory",
-    "memberof": "src/indicator.mjs~PriceIndicator",
-    "generator": false,
-    "async": true,
-    "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#prepHistory",
-    "access": "public",
-    "description": null,
-    "lineNumber": 68,
-    "undocument": true,
-    "params": [
-      {
-        "name": "startTime",
-        "types": [
-          "*"
-        ]
-      }
-    ],
-    "return": null
-  },
-  {
-    "__docId__": 76,
     "kind": "method",
     "name": "getAt",
-    "memberof": "src/indicator.mjs~PriceIndicator",
+    "memberof": "src/indicator.mjs~SingleIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~PriceIndicator#getAt",
+    "longname": "src/indicator.mjs~SingleIndicator#getAt",
     "access": "public",
     "description": null,
-    "lineNumber": 78,
+    "lineNumber": 39,
     "undocument": true,
     "params": [
       {
@@ -1587,43 +1434,39 @@
         ]
       }
     ],
-    "return": {
-      "types": [
-        "*"
-      ]
-    }
+    "return": null
   },
   {
-    "__docId__": 77,
+    "__docId__": 69,
     "kind": "class",
-    "name": "EMAIndicator",
+    "name": "PriceIndicator",
     "memberof": "src/indicator.mjs",
     "static": true,
-    "longname": "src/indicator.mjs~EMAIndicator",
+    "longname": "src/indicator.mjs~PriceIndicator",
     "access": "public",
     "export": true,
     "importPath": "cryptotrader9000/src/indicator.mjs",
-    "importStyle": "{EMAIndicator}",
+    "importStyle": "{PriceIndicator}",
     "description": null,
-    "lineNumber": 90,
+    "lineNumber": 44,
     "undocument": true,
     "interface": false,
     "extends": [
-      "Indicator"
+      "SingleIndicator"
     ]
   },
   {
-    "__docId__": 78,
+    "__docId__": 70,
     "kind": "constructor",
     "name": "constructor",
-    "memberof": "src/indicator.mjs~EMAIndicator",
+    "memberof": "src/indicator.mjs~PriceIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#constructor",
+    "longname": "src/indicator.mjs~PriceIndicator#constructor",
     "access": "public",
-    "description": "",
-    "lineNumber": 98,
+    "description": "Create a PriceIndicator instance. init must be called before use.\nTypically, the helper function {@link createAndInit} should be used\nto create PriceIndicator instances.",
+    "lineNumber": 57,
     "params": [
       {
         "nullable": null,
@@ -1634,6 +1477,309 @@
         "optional": false,
         "name": "binance",
         "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "A name for the indicator."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "CoinPair"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "coinPair",
+        "description": "A pair of coins - the price value\n                                     of the indicator is the quote price\n                                     for the pair."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "interval",
+        "description": "The interval for the indicator\n                                     in string form (see {@link chartIntervalToMs}."
+      }
+    ]
+  },
+  {
+    "__docId__": 71,
+    "kind": "member",
+    "name": "coinPair",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#coinPair",
+    "access": "public",
+    "description": null,
+    "lineNumber": 59,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 72,
+    "kind": "member",
+    "name": "_data",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#_data",
+    "access": "private",
+    "description": null,
+    "lineNumber": 60,
+    "undocument": true,
+    "ignore": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 73,
+    "kind": "member",
+    "name": "_stream",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#_stream",
+    "access": "private",
+    "description": null,
+    "lineNumber": 61,
+    "undocument": true,
+    "ignore": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 74,
+    "kind": "method",
+    "name": "init",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "generator": false,
+    "async": true,
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#init",
+    "access": "public",
+    "description": "Prepare a PriceIndicator for use.\nThis method establishes the required network connections to gather\nprice data.",
+    "lineNumber": 69,
+    "params": [],
+    "return": null
+  },
+  {
+    "__docId__": 75,
+    "kind": "member",
+    "name": "stream",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#stream",
+    "access": "public",
+    "description": null,
+    "lineNumber": 71,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 77,
+    "kind": "method",
+    "name": "createAndInit",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "generator": false,
+    "async": true,
+    "static": true,
+    "longname": "src/indicator.mjs~PriceIndicator.createAndInit",
+    "access": "public",
+    "description": "A helper method to create and initialise a PriceIndcator instance.",
+    "lineNumber": 98,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{PriceIndicator} An instance that is ready to use."
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "binance",
+        "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "A name for the indicator."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "CoinPair"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "coinPair",
+        "description": "A pair of coins - the price value\n                                     of the indicator is the quote price\n                                     for the pair."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "interval",
+        "description": "The interval for the indicator\n                                     in string form (see {@link chartIntervalToMs}."
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "PriceIndicator"
+      ],
+      "spread": false,
+      "description": "An instance that is ready to use."
+    }
+  },
+  {
+    "__docId__": 78,
+    "kind": "method",
+    "name": "prepHistory",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "generator": false,
+    "async": true,
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#prepHistory",
+    "access": "public",
+    "description": "Ensure this PriceIndicator instance has historical data from startTime\nto the current time.\nCall this method prior to retreiving data for any time value before\nthe creation time of this instance.",
+    "lineNumber": 112,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "startTime",
+        "description": "The earliest required data."
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 79,
+    "kind": "method",
+    "name": "getAt",
+    "memberof": "src/indicator.mjs~PriceIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~PriceIndicator#getAt",
+    "access": "public",
+    "description": "Get the indicator value for {@link time}.",
+    "lineNumber": 127,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "        The data value for the requested time."
+      }
+    ],
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "time",
+        "description": "A timestamp in ms."
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "*"
+      ],
+      "spread": false,
+      "description": "The data value for the requested time."
+    }
+  },
+  {
+    "__docId__": 80,
+    "kind": "class",
+    "name": "EMAIndicator",
+    "memberof": "src/indicator.mjs",
+    "static": true,
+    "longname": "src/indicator.mjs~EMAIndicator",
+    "access": "public",
+    "export": true,
+    "importPath": "cryptotrader9000/src/indicator.mjs",
+    "importStyle": "{EMAIndicator}",
+    "description": null,
+    "lineNumber": 140,
+    "undocument": true,
+    "interface": false,
+    "extends": [
+      "SingleIndicator"
+    ]
+  },
+  {
+    "__docId__": 81,
+    "kind": "constructor",
+    "name": "constructor",
+    "memberof": "src/indicator.mjs~EMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~EMAIndicator#constructor",
+    "access": "public",
+    "description": "Create an EMAIndicator instance. init must be called before use.\nTypically, the helper function {@link createAndInit} should be used\nto any instances.",
+    "lineNumber": 152,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "binance",
+        "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "A name for the indicator."
       },
       {
         "nullable": null,
@@ -1658,7 +1804,7 @@
     ]
   },
   {
-    "__docId__": 79,
+    "__docId__": 82,
     "kind": "member",
     "name": "nPeriods",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1666,7 +1812,7 @@
     "longname": "src/indicator.mjs~EMAIndicator#nPeriods",
     "access": "public",
     "description": null,
-    "lineNumber": 100,
+    "lineNumber": 154,
     "undocument": true,
     "type": {
       "types": [
@@ -1675,7 +1821,7 @@
     }
   },
   {
-    "__docId__": 80,
+    "__docId__": 83,
     "kind": "member",
     "name": "source",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1683,7 +1829,7 @@
     "longname": "src/indicator.mjs~EMAIndicator#source",
     "access": "public",
     "description": null,
-    "lineNumber": 101,
+    "lineNumber": 155,
     "undocument": true,
     "type": {
       "types": [
@@ -1692,16 +1838,17 @@
     }
   },
   {
-    "__docId__": 81,
+    "__docId__": 84,
     "kind": "member",
-    "name": "data",
+    "name": "_data",
     "memberof": "src/indicator.mjs~EMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~EMAIndicator#data",
-    "access": "public",
+    "longname": "src/indicator.mjs~EMAIndicator#_data",
+    "access": "private",
     "description": null,
-    "lineNumber": 102,
+    "lineNumber": 156,
     "undocument": true,
+    "ignore": true,
     "type": {
       "types": [
         "*"
@@ -1709,7 +1856,7 @@
     }
   },
   {
-    "__docId__": 82,
+    "__docId__": 85,
     "kind": "method",
     "name": "init",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1718,14 +1865,13 @@
     "static": false,
     "longname": "src/indicator.mjs~EMAIndicator#init",
     "access": "public",
-    "description": null,
-    "lineNumber": 109,
-    "undocument": true,
+    "description": "Prepare the indicator for use.\nThis method establishes the required network connections to gather\nprice data.",
+    "lineNumber": 164,
     "params": [],
     "return": null
   },
   {
-    "__docId__": 83,
+    "__docId__": 86,
     "kind": "method",
     "name": "createAndInit",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1734,43 +1880,67 @@
     "static": true,
     "longname": "src/indicator.mjs~EMAIndicator.createAndInit",
     "access": "public",
-    "description": null,
-    "lineNumber": 124,
-    "undocument": true,
+    "description": "A helper method to create and initialise the indicator instance.",
+    "lineNumber": 189,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{EMAIndicator}  An instance that is ready to use."
+      }
+    ],
     "params": [
       {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
         "name": "binance",
-        "types": [
-          "*"
-        ]
+        "description": "A BinanceAccess object."
       },
       {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
         "name": "name",
-        "types": [
-          "*"
-        ]
+        "description": "A name for the indicator."
       },
       {
+        "nullable": null,
+        "types": [
+          "Indicator"
+        ],
+        "spread": false,
+        "optional": false,
         "name": "source",
-        "types": [
-          "*"
-        ]
+        "description": "The data source that an EMA\n                                     is calculated for."
       },
       {
-        "name": "nPeriods",
+        "nullable": null,
         "types": [
-          "*"
-        ]
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "nPeriods",
+        "description": "The number of periods over which to\n                                     calculate the EMA."
       }
     ],
     "return": {
+      "nullable": null,
       "types": [
-        "*"
-      ]
+        "EMAIndicator"
+      ],
+      "spread": false,
+      "description": "An instance that is ready to use."
     }
   },
   {
-    "__docId__": 84,
+    "__docId__": 87,
     "kind": "method",
     "name": "_calculate",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1780,7 +1950,7 @@
     "longname": "src/indicator.mjs~EMAIndicator#_calculate",
     "access": "private",
     "description": null,
-    "lineNumber": 131,
+    "lineNumber": 196,
     "undocument": true,
     "ignore": true,
     "params": [
@@ -1799,7 +1969,7 @@
     }
   },
   {
-    "__docId__": 85,
+    "__docId__": 88,
     "kind": "method",
     "name": "prepHistory",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1808,21 +1978,24 @@
     "static": false,
     "longname": "src/indicator.mjs~EMAIndicator#prepHistory",
     "access": "public",
-    "description": null,
-    "lineNumber": 149,
-    "undocument": true,
+    "description": "Ensure this EMAIndicator instance has historical data from startTime\nto the current time.\nCall this method prior to retreiving data for any time value before\nthe creation time of this instance.",
+    "lineNumber": 221,
     "params": [
       {
-        "name": "startTime",
+        "nullable": null,
         "types": [
-          "*"
-        ]
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "startTime",
+        "description": "The earliest required data."
       }
     ],
     "return": null
   },
   {
-    "__docId__": 86,
+    "__docId__": 89,
     "kind": "method",
     "name": "getAt",
     "memberof": "src/indicator.mjs~EMAIndicator",
@@ -1831,25 +2004,37 @@
     "static": false,
     "longname": "src/indicator.mjs~EMAIndicator#getAt",
     "access": "public",
-    "description": null,
-    "lineNumber": 157,
-    "undocument": true,
+    "description": "Get the indicator value for {@link time}.",
+    "lineNumber": 234,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "        The data value for the requested time."
+      }
+    ],
     "params": [
       {
-        "name": "time",
+        "nullable": null,
         "types": [
-          "*"
-        ]
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "time",
+        "description": "A timestamp in ms."
       }
     ],
     "return": {
+      "nullable": null,
       "types": [
         "*"
-      ]
+      ],
+      "spread": false,
+      "description": "The data value for the requested time."
     }
   },
   {
-    "__docId__": 87,
+    "__docId__": 90,
     "kind": "class",
     "name": "MultiIndicator",
     "memberof": "src/indicator.mjs",
@@ -1859,65 +2044,8 @@
     "export": true,
     "importPath": "cryptotrader9000/src/indicator.mjs",
     "importStyle": "{MultiIndicator}",
-    "description": null,
-    "lineNumber": 162,
-    "undocument": true,
-    "interface": false,
-    "extends": [
-      "Indicator"
-    ]
-  },
-  {
-    "__docId__": 88,
-    "kind": "constructor",
-    "name": "constructor",
-    "memberof": "src/indicator.mjs~MultiIndicator",
-    "generator": false,
-    "async": false,
-    "static": false,
-    "longname": "src/indicator.mjs~MultiIndicator#constructor",
-    "access": "public",
-    "description": null,
-    "lineNumber": 163,
-    "undocument": true
-  },
-  {
-    "__docId__": 89,
-    "kind": "method",
-    "name": "getAll",
-    "memberof": "src/indicator.mjs~MultiIndicator",
-    "generator": false,
-    "async": false,
-    "static": false,
-    "longname": "src/indicator.mjs~MultiIndicator#getAll",
-    "access": "public",
-    "description": null,
-    "lineNumber": 168,
-    "undocument": true,
-    "params": [
-      {
-        "name": "time",
-        "types": [
-          "*"
-        ]
-      }
-    ],
-    "return": null
-  },
-  {
-    "__docId__": 90,
-    "kind": "class",
-    "name": "MultiEMAIndicator",
-    "memberof": "src/indicator.mjs",
-    "static": true,
-    "longname": "src/indicator.mjs~MultiEMAIndicator",
-    "access": "public",
-    "export": true,
-    "importPath": "cryptotrader9000/src/indicator.mjs",
-    "importStyle": "{MultiEMAIndicator}",
-    "description": null,
-    "lineNumber": 173,
-    "undocument": true,
+    "description": "An interface for a composite indicator - one made up from multiple\nsingle indicators.",
+    "lineNumber": 243,
     "interface": false,
     "extends": [
       "Indicator"
@@ -1927,14 +2055,14 @@
     "__docId__": 91,
     "kind": "constructor",
     "name": "constructor",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "memberof": "src/indicator.mjs~MultiIndicator",
     "generator": false,
     "async": false,
     "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#constructor",
+    "longname": "src/indicator.mjs~MultiIndicator#constructor",
     "access": "public",
     "description": "",
-    "lineNumber": 184,
+    "lineNumber": 250,
     "params": [
       {
         "nullable": null,
@@ -1945,6 +2073,103 @@
         "optional": false,
         "name": "binance",
         "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "A name for the indicator."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "interval",
+        "description": "The interval for the indicator\n                                     in string form (see {@link chartIntervalToMs}."
+      }
+    ]
+  },
+  {
+    "__docId__": 92,
+    "kind": "method",
+    "name": "getAll",
+    "memberof": "src/indicator.mjs~MultiIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiIndicator#getAll",
+    "access": "public",
+    "description": null,
+    "lineNumber": 255,
+    "undocument": true,
+    "params": [
+      {
+        "name": "time",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 93,
+    "kind": "class",
+    "name": "MultiEMAIndicator",
+    "memberof": "src/indicator.mjs",
+    "static": true,
+    "longname": "src/indicator.mjs~MultiEMAIndicator",
+    "access": "public",
+    "export": true,
+    "importPath": "cryptotrader9000/src/indicator.mjs",
+    "importStyle": "{MultiEMAIndicator}",
+    "description": null,
+    "lineNumber": 260,
+    "undocument": true,
+    "interface": false,
+    "extends": [
+      "Indicator"
+    ]
+  },
+  {
+    "__docId__": 94,
+    "kind": "constructor",
+    "name": "constructor",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#constructor",
+    "access": "public",
+    "description": "",
+    "lineNumber": 272,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "binance",
+        "description": "A BinanceAccess object."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "name",
+        "description": "A name for the indicator."
       },
       {
         "nullable": null,
@@ -1969,7 +2194,7 @@
     ]
   },
   {
-    "__docId__": 92,
+    "__docId__": 95,
     "kind": "member",
     "name": "_emaSource",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1977,7 +2202,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#_emaSource",
     "access": "private",
     "description": null,
-    "lineNumber": 186,
+    "lineNumber": 274,
     "undocument": true,
     "ignore": true,
     "type": {
@@ -1987,7 +2212,7 @@
     }
   },
   {
-    "__docId__": 93,
+    "__docId__": 96,
     "kind": "member",
     "name": "lengths",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -1995,7 +2220,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#lengths",
     "access": "public",
     "description": null,
-    "lineNumber": 187,
+    "lineNumber": 275,
     "undocument": true,
     "type": {
       "types": [
@@ -2004,7 +2229,7 @@
     }
   },
   {
-    "__docId__": 94,
+    "__docId__": 97,
     "kind": "member",
     "name": "emas",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2012,7 +2237,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#emas",
     "access": "public",
     "description": null,
-    "lineNumber": 189,
+    "lineNumber": 277,
     "undocument": true,
     "type": {
       "types": [
@@ -2021,7 +2246,7 @@
     }
   },
   {
-    "__docId__": 95,
+    "__docId__": 98,
     "kind": "member",
     "name": "orderedEmas",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2029,58 +2254,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#orderedEmas",
     "access": "public",
     "description": null,
-    "lineNumber": 190,
-    "undocument": true,
-    "type": {
-      "types": [
-        "*"
-      ]
-    }
-  },
-  {
-    "__docId__": 96,
-    "kind": "member",
-    "name": "currentTime",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#currentTime",
-    "access": "public",
-    "description": null,
-    "lineNumber": 191,
-    "undocument": true,
-    "type": {
-      "types": [
-        "number"
-      ]
-    }
-  },
-  {
-    "__docId__": 97,
-    "kind": "member",
-    "name": "nUpdates",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#nUpdates",
-    "access": "public",
-    "description": null,
-    "lineNumber": 192,
-    "undocument": true,
-    "type": {
-      "types": [
-        "number"
-      ]
-    }
-  },
-  {
-    "__docId__": 98,
-    "kind": "member",
-    "name": "currentPrice",
-    "memberof": "src/indicator.mjs~MultiEMAIndicator",
-    "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#currentPrice",
-    "access": "public",
-    "description": null,
-    "lineNumber": 193,
+    "lineNumber": 278,
     "undocument": true,
     "type": {
       "types": [
@@ -2091,13 +2265,47 @@
   {
     "__docId__": 99,
     "kind": "member",
-    "name": "slow",
+    "name": "currentTime",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
     "static": false,
-    "longname": "src/indicator.mjs~MultiEMAIndicator#slow",
+    "longname": "src/indicator.mjs~MultiEMAIndicator#currentTime",
     "access": "public",
     "description": null,
-    "lineNumber": 194,
+    "lineNumber": 279,
+    "undocument": true,
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 100,
+    "kind": "member",
+    "name": "nUpdates",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#nUpdates",
+    "access": "public",
+    "description": null,
+    "lineNumber": 280,
+    "undocument": true,
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 101,
+    "kind": "member",
+    "name": "currentPrice",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#currentPrice",
+    "access": "public",
+    "description": null,
+    "lineNumber": 281,
     "undocument": true,
     "type": {
       "types": [
@@ -2106,7 +2314,24 @@
     }
   },
   {
-    "__docId__": 100,
+    "__docId__": 102,
+    "kind": "member",
+    "name": "slow",
+    "memberof": "src/indicator.mjs~MultiEMAIndicator",
+    "static": false,
+    "longname": "src/indicator.mjs~MultiEMAIndicator#slow",
+    "access": "public",
+    "description": null,
+    "lineNumber": 282,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 103,
     "kind": "member",
     "name": "fast",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2114,7 +2339,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#fast",
     "access": "public",
     "description": null,
-    "lineNumber": 195,
+    "lineNumber": 283,
     "undocument": true,
     "type": {
       "types": [
@@ -2123,7 +2348,7 @@
     }
   },
   {
-    "__docId__": 101,
+    "__docId__": 104,
     "kind": "method",
     "name": "init",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2132,14 +2357,13 @@
     "static": false,
     "longname": "src/indicator.mjs~MultiEMAIndicator#init",
     "access": "public",
-    "description": null,
-    "lineNumber": 198,
-    "undocument": true,
+    "description": "Prepare the indicator for use.\nThis method establishes the required network connections to gather\nprice data.",
+    "lineNumber": 291,
     "params": [],
     "return": null
   },
   {
-    "__docId__": 105,
+    "__docId__": 108,
     "kind": "method",
     "name": "_update",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2149,7 +2373,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#_update",
     "access": "private",
     "description": null,
-    "lineNumber": 241,
+    "lineNumber": 334,
     "undocument": true,
     "ignore": true,
     "params": [
@@ -2163,7 +2387,7 @@
     "return": null
   },
   {
-    "__docId__": 108,
+    "__docId__": 111,
     "kind": "method",
     "name": "createAndInit",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2172,43 +2396,67 @@
     "static": true,
     "longname": "src/indicator.mjs~MultiEMAIndicator.createAndInit",
     "access": "public",
-    "description": null,
-    "lineNumber": 285,
-    "undocument": true,
+    "description": "A helper method to create and initialise a MultiEMAIndcator instance.",
+    "lineNumber": 391,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{MultiEMAIndicator} An instance that is ready to use."
+      }
+    ],
     "params": [
       {
+        "nullable": null,
+        "types": [
+          "BinanceAccess"
+        ],
+        "spread": false,
+        "optional": false,
         "name": "binance",
-        "types": [
-          "*"
-        ]
+        "description": "A BinanceAccess object."
       },
       {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
         "name": "name",
-        "types": [
-          "*"
-        ]
+        "description": "A name for the indicator."
       },
       {
+        "nullable": null,
+        "types": [
+          "Indicator"
+        ],
+        "spread": false,
+        "optional": false,
         "name": "emaSource",
-        "types": [
-          "*"
-        ]
+        "description": "The source of data for calculating\n                                     each EMA in the set."
       },
       {
-        "name": "lengths",
+        "nullable": null,
         "types": [
-          "*"
-        ]
+          "Array"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "lengths",
+        "description": "An array containing the period for\n                                     each EMA in the set.\n                                     The number of values in this array\n                                     indicates how many EMAIndicators\n                                     are included in the set."
       }
     ],
     "return": {
+      "nullable": null,
       "types": [
-        "*"
-      ]
+        "MultiEMAIndicator"
+      ],
+      "spread": false,
+      "description": "An instance that is ready to use."
     }
   },
   {
-    "__docId__": 109,
+    "__docId__": 112,
     "kind": "method",
     "name": "getAt",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2218,7 +2466,7 @@
     "longname": "src/indicator.mjs~MultiEMAIndicator#getAt",
     "access": "public",
     "description": null,
-    "lineNumber": 293,
+    "lineNumber": 399,
     "undocument": true,
     "params": [
       {
@@ -2231,7 +2479,7 @@
     "return": null
   },
   {
-    "__docId__": 110,
+    "__docId__": 113,
     "kind": "method",
     "name": "getAll",
     "memberof": "src/indicator.mjs~MultiEMAIndicator",
@@ -2240,25 +2488,37 @@
     "static": false,
     "longname": "src/indicator.mjs~MultiEMAIndicator#getAll",
     "access": "public",
-    "description": null,
-    "lineNumber": 297,
-    "undocument": true,
+    "description": "Get the values for all sub indicators for {@link time}.",
+    "lineNumber": 409,
+    "unknown": [
+      {
+        "tagName": "@returns",
+        "tagValue": "{Array}         An array containing the data values for the\n                         requested time."
+      }
+    ],
     "params": [
       {
-        "name": "time",
+        "nullable": null,
         "types": [
-          "*"
-        ]
+          "number"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "time",
+        "description": "A timestamp in ms."
       }
     ],
     "return": {
+      "nullable": null,
       "types": [
-        "*"
-      ]
+        "Array"
+      ],
+      "spread": false,
+      "description": "An array containing the data values for the\n                         requested time."
     }
   },
   {
-    "__docId__": 111,
+    "__docId__": 114,
     "kind": "file",
     "name": "src/log.mjs",
     "content": "import {TelegramBot} from './telegram.mjs';\n\nconst Console = console;\n\n/**\n * Options for differing verbosity of log output.\n * @package\n */\nexport const LogLevelType = {\n    none:   0,\n    error:  1,\n    notify: 2,\n    info:   4,\n    debug:  8\n};\n\n/**\n * @protected\n */\nclass Log {\n    /**\n     * Create a logger.\n     * If TELEGRAM_KEY and TELEGRAM_CHANNEL environment variables are set,\n     * then a Telegram bot will be instantiated for output for some log\n     * verbosity levels.\n     */\n    constructor() {\n        /**\n         * Set to a value from {@link LogLevelType} to set the verbosity of output.\n         */\n        this.level = LogLevelType.debug;\n\n        if (process.env.TELEGRAM_KEY !== undefined\n            &&\n            process.env.TELEGRAM_CHANNEL !== undefined\n        ) {\n            this.telegram = new TelegramBot(\n                process.env.TELEGRAM_KEY,\n                process.env.TELEGRAM_CHANNEL,\n                process.env.NET_REQUEST_TIMEOUT || 3000\n            );\n        }\n    }\n\n    /**\n     * Output information about an error.\n     * Will write to the Telegram bot if configured.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    error(...args) {\n        if (this.level < LogLevelType.error) return;\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    /**\n     * Output notification information. Notifications are considered to be\n     * of higher importance than informative output.\n     * Will write to the Telegram bot if configured.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    notify(...args) {\n        if (this.level < LogLevelType.notify) return;\n        if (this.telegram) this.telegram.message(args.join(' '));\n        Console.log(...args);\n    }\n\n    /**\n     * Output an informative message. Considered to be less important than\n     * notifications.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    info(...args) {\n        if (this.level < LogLevelType.info) return;\n        Console.log(...args);\n    }\n\n    /**\n     * Output debug information.\n     * @param {...(string|number|object|bool)} args\n     *                                  Any number of objects to output. The\n     *                                  string represented will be concateanted\n     *                                  with a space character.\n     */\n    debug(...args) {\n        if (this.level < LogLevelType.debug) return;\n        Console.log(...args);\n    }\n}\n\n/**\n * An instance of the Log for use within the package.\n * @package\n */\nexport const log = new Log();\n\n\n",
@@ -2269,7 +2529,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 112,
+    "__docId__": 115,
     "kind": "variable",
     "name": "Console",
     "memberof": "src/log.mjs",
@@ -2290,7 +2550,7 @@
     "ignore": true
   },
   {
-    "__docId__": 113,
+    "__docId__": 116,
     "kind": "variable",
     "name": "LogLevelType",
     "memberof": "src/log.mjs",
@@ -2310,7 +2570,7 @@
     }
   },
   {
-    "__docId__": 114,
+    "__docId__": 117,
     "kind": "variable",
     "name": "log",
     "memberof": "src/log.mjs",
@@ -2330,7 +2590,7 @@
     }
   },
   {
-    "__docId__": 115,
+    "__docId__": 118,
     "kind": "class",
     "name": "Log",
     "memberof": "src/log.mjs",
@@ -2347,7 +2607,7 @@
     "ignore": true
   },
   {
-    "__docId__": 116,
+    "__docId__": 119,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/log.mjs~Log",
@@ -2360,7 +2620,7 @@
     "lineNumber": 27
   },
   {
-    "__docId__": 117,
+    "__docId__": 120,
     "kind": "member",
     "name": "level",
     "memberof": "src/log.mjs~Log",
@@ -2376,7 +2636,7 @@
     }
   },
   {
-    "__docId__": 118,
+    "__docId__": 121,
     "kind": "member",
     "name": "telegram",
     "memberof": "src/log.mjs~Log",
@@ -2393,7 +2653,7 @@
     }
   },
   {
-    "__docId__": 119,
+    "__docId__": 122,
     "kind": "method",
     "name": "error",
     "memberof": "src/log.mjs~Log",
@@ -2419,7 +2679,7 @@
     "return": null
   },
   {
-    "__docId__": 120,
+    "__docId__": 123,
     "kind": "method",
     "name": "notify",
     "memberof": "src/log.mjs~Log",
@@ -2445,7 +2705,7 @@
     "return": null
   },
   {
-    "__docId__": 121,
+    "__docId__": 124,
     "kind": "method",
     "name": "info",
     "memberof": "src/log.mjs~Log",
@@ -2471,7 +2731,7 @@
     "return": null
   },
   {
-    "__docId__": 122,
+    "__docId__": 125,
     "kind": "method",
     "name": "debug",
     "memberof": "src/log.mjs~Log",
@@ -2497,7 +2757,7 @@
     "return": null
   },
   {
-    "__docId__": 123,
+    "__docId__": 126,
     "kind": "file",
     "name": "src/main.mjs",
     "content": "import {BinanceAccess} from './binance.mjs';\nimport {PriceIndicator, MultiEMAIndicator} from './indicator.mjs';\nimport {log, LogLevelType} from './log';\n\nimport Big from 'big.js';\n\n(async function main() {\n    log.info('Initialising exchange access');\n    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);\n    await binance.init();\n    log.info('  Binance access initialised.');\n\n    log.level = LogLevelType.info;\n\n    await binance.loadAccount(\n        process.env.BINANCEACCOUNT_NAME,\n        process.env.BINANCEACCOUNT_KEY,\n        process.env.BINANCEACCOUNT_SECRET\n    );\n    const nulsbtc = binance.getCoinPair('NULS','BTC');\n    const nulsbtcPrice = await PriceIndicator.createAndInit(\n        binance, nulsbtc.symbol, nulsbtc, '1m', 20);\n    const multiEma = await MultiEMAIndicator.createAndInit(\n        binance, `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);\n\n    log.notify(`Bot online. Tracking ${nulsbtc.symbol} ${nulsbtcPrice.interval}.`);\n\n    let buyAt = null;\n    let cumulative = new Big(0);\n\n    // Possibly the world's simplest trading strategy.\n    // Buy when The fast and slow EMA cross and sell when they cross again.\n    multiEma.addObserver('fastSlowCross', (crossed, time, price) => {\n        const message = [];\n        const signal =\n            crossed.findIndex((e) => e.nPeriods == multiEma.slow)\n            <\n            crossed.findIndex((e) => e.nPeriods == multiEma.fast)\n                ? 'sell' : 'buy';\n        message.push(\n            multiEma.name, multiEma.interval,\n            'Fast and slow EMA cross.',\n            `Signal: ${signal}.`,\n            `Price: ${price.toString()}.`\n        );\n        if (signal == 'buy') {\n            buyAt = price;\n        } else if (buyAt != null) {\n            const diff = price.sub(buyAt);\n            cumulative = cumulative.plus(diff);\n            message.push(\n                'Sold. Buy/sell difference: ', diff.toString(),\n                '. Cumulative gain:', cumulative.toString()\n            );\n            buyAt = null;\n        }\n        log.notify(...message);\n    });\n    multiEma.addObserver('cross', (crossed, time, price) => {\n        //if (buyAt == null) return;\n        //const signal =\n        //    crossed.findIndex((e) => e.nPeriods == \n    });\n    multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});\n})();\n",
@@ -2508,7 +2768,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 124,
+    "__docId__": 127,
     "kind": "file",
     "name": "src/observable.mjs",
     "content": "/**\n * Apply the Observable pattern to a subclass.\n * @package\n * @example\n *    How to use:\n *\n *    class Player extends ObservableMixin(Object) {\n *        constructor(maxHP) {\n *            super();\n *            this.hp = maxHP;\n *        }\n *\n *        dmg(value) {\n *            const oldHP = this.hp;\n *            this.hp -= value;\n *            if (this.hp <= 0) {\n *                this.notifyObserver('death', oldHP, this.hp);\n *                return;\n *            }\n *            this.notifyObserver('damage', oldHP, this.hp);\n *        }\n *    }\n *\n *    class A {\n *        constructor() {\n *            this.players = [new Player(100), new Player(60)];\n *            this.players[0].addObserver('death', this.playerDied, this, 0);\n *            this.players[0].addObserver('damage', this.playerDamaged, this, 0);\n *            this.players[1].addObserver('death', this.playerDied, this, 1);\n *            this.players[1].addObserver('damage', this.playerDamaged, this, 1);\n *        }\n *\n *        playerDied(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage and died.`);\n *            this.players.splice(playerIndex, 1);\n *        }\n *\n *        playerDamaged(playerIndex, oldValue, newValue) {\n *            console.log(`player ${playerIndex} took ${oldValue - newValue} damage.`);\n *        }\n *    }\n *\n *    const a = new A();\n *\n *    while (a.players.length > 0) {\n *        for (player of a.players) {\n *            player.dmg(10);\n *        }\n *    }\n */\nexport const ObservableMixin = superclass => class extends superclass {\n    constructor() {\n        super(...arguments);\n        this.observers = new Map();\n\n    }\n\n    addObserver(event, fn, useThis, ctxt) {\n        const boundFn = ctxt === undefined ? fn.bind(useThis) : fn.bind(useThis, ctxt);\n        if (this.observers.has(event)) {\n            this.observers.get(event).push(boundFn);\n            return;\n        }\n        this.observers.set(event, [boundFn]);\n    }\n\n    notifyObservers(event, ...args) {\n        if (!this.observers.has(event))\n            return;\n\n        for (let observer of this.observers.get(event)) {\n            observer(...args);\n        }\n    }\n};\n\n/**************************************************************************\n**************************************************************************/\n",
@@ -2519,7 +2779,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 125,
+    "__docId__": 128,
     "kind": "function",
     "name": "ObservableMixin",
     "memberof": "src/observable.mjs",
@@ -2548,7 +2808,7 @@
     "return": null
   },
   {
-    "__docId__": 126,
+    "__docId__": 129,
     "kind": "file",
     "name": "src/telegram.mjs",
     "content": "import axios from 'axios';\n\nimport {log} from './log';\n\n/**\n * @access package\n */\nexport class TelegramBot {\n    constructor(key, channel, timeout=3000) {\n        this.key = key;\n        this.channel = channel;\n        this.base = 'https://api.telegram.org/bot';\n        this._axiosInst = axios.create({\n            baseURL: this.base,\n            timeout: timeout\n        });\n\n    }\n\n    async message(m) {\n        const url = `${this.base}${this.key}/sendMessage`;\n        const cfg = {\n            params: {\n                chat_id: this.channel,\n                text: m,\n                disable_notification: true\n            }\n        };\n\n        return this._axiosInst.get(url, cfg)\n            .then(response => {\n                log.debug(\n                    `${url} returned ${response.statusText} `+\n                    `(${response.status})`+\n                    `${response.data}`\n                );\n                return response.data;\n            })\n            .catch(err => {\n                log.error(`${url} returned error.`);\n                if (err.response) {\n                    log.error('response:', err.response.data);\n                    log.error(err.response.status);\n                    //console.log(err.response.headers);\n                } else if (err.request) {\n                    // The request was made but no response received.\n                    log.error('No response');\n                    log.error(err.request);\n                } else {\n                    log.error('Error', err.message);\n                }\n                throw err;\n            });\n    }\n}\n",
@@ -2559,7 +2819,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 127,
+    "__docId__": 130,
     "kind": "class",
     "name": "TelegramBot",
     "memberof": "src/telegram.mjs",
@@ -2575,7 +2835,7 @@
     "ignore": true
   },
   {
-    "__docId__": 128,
+    "__docId__": 131,
     "kind": "constructor",
     "name": "constructor",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2589,7 +2849,7 @@
     "undocument": true
   },
   {
-    "__docId__": 129,
+    "__docId__": 132,
     "kind": "member",
     "name": "key",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2606,7 +2866,7 @@
     }
   },
   {
-    "__docId__": 130,
+    "__docId__": 133,
     "kind": "member",
     "name": "channel",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2623,7 +2883,7 @@
     }
   },
   {
-    "__docId__": 131,
+    "__docId__": 134,
     "kind": "member",
     "name": "base",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2640,7 +2900,7 @@
     }
   },
   {
-    "__docId__": 132,
+    "__docId__": 135,
     "kind": "member",
     "name": "_axiosInst",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2658,7 +2918,7 @@
     }
   },
   {
-    "__docId__": 133,
+    "__docId__": 136,
     "kind": "method",
     "name": "message",
     "memberof": "src/telegram.mjs~TelegramBot",
@@ -2685,7 +2945,7 @@
     }
   },
   {
-    "__docId__": 134,
+    "__docId__": 137,
     "kind": "file",
     "name": "src/timeseries.mjs",
     "content": "import {chartIntervalToMs} from './utils';\nimport {ObservableMixin} from './observable';\n\n// Assumes data will be added for all intervals, so we're not optimising for\n// space wrt missing data.\n\n/**\n * Data store for time series data - i.e. data that is associated with\n * fixed intervals of time and has no gaps.\n * The TimeSeriesData class is designed to provide data immediately if it\n * is available, so it is suitable for time critical requests.\n * Because of this, any data required must be pushed into the TimeSeriesData\n * instance prior to use. There is no mechanism for pulling missing data when\n * needed, as the pull may take an unknown amount of time (due to network\n * requests, etc).\n * @package\n */\nexport class TimeSeriesData extends ObservableMixin(Object) {\n    /**\n     * @param {string} interval     A string representing a time interval.\n     *                              For accepted values, see {@link chartIntervalToMs}.\n     */\n    constructor(interval) {\n        super();\n        /** Time interval in string form. */\n        this.interval = interval;\n        /** Time interval in milliseconds. */\n        this.intervalMs = chartIntervalToMs(interval);\n        this.firstTime = Infinity;\n        this._lastTime = 0;\n        this._data = [];\n        this.hasData = false;\n    }\n\n    /**\n     * If a time is given that is after the last data sample, then\n     * fill the data up to time.\n     * @param {number} time     Time in milliseconds.\n     */\n    _checkAndFillTrailingData(time) {\n        if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);\n        const gap = time - this._lastTime;\n        if (gap < this.intervalMs) return;\n        const nMissing = Math.ceil(gap / this.intervalMs);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = this._data.concat(\n            new Array(nMissing).fill(this._data[this._data.length - 1])\n        );\n        this._lastTime = time;\n    }\n\n    /**\n     * If a time is given that is prior to the first data sample, then\n     * fill the data from time to the first existing sample, using the\n     * given data value.\n     * @param {number} time     Time in milliseconds.\n     * @param          data     The data value to use when filling.\n     */\n    _checkAndFillLeadingData(time, data) {\n        if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);\n        const gap = this.firstTime - time;\n        if (gap < this.intervalMs) return;\n        const nMissing = Math.ceil(gap / this.intervalMs);\n        //console.log(`WARNING: _checkAndFillTrailingData adding ${nMissing}`);\n        this._data = new Array(nMissing).fill(data).concat(this._data);\n        this.firstTime = time;\n    }\n\n    /**\n     * Add data to the series.\n     * If data is provided for a time that has existing data, then that data\n     * is overwritten.\n     * If data is provided more than one interval before or after existing data\n     * then the empty samples are padded with the preceeding data value.\n     * @param {number} time     The time in milliseconds.\n     * @param          data     The data value to store at this time.\n     */\n    addData(time, data) {\n        time -= (time % this.intervalMs);\n\n        if (this._data.length === 0) {\n            this._data.push(data);\n            this._lastTime = this.firstTime = time;\n        } else if (time > this._lastTime) {\n            // Comes after last sample\n            this._checkAndFillTrailingData(time - this.intervalMs);\n            this._data.push(data);\n            this._lastTime = time;\n            this.notifyObservers('extended', data, time);\n        } else if (time < this.firstTime) {\n            // Comes before first sample\n            this._checkAndFillLeadingData(time + this.intervalMs, data);\n            this._data.unshift(data);\n            this.firstTime = time;\n        } else {\n            // If it falls exactly on the interval, overwrites an existing\n            // sample, otherwise an error.\n            const replaceIndex = (time - this.firstTime) / this.intervalMs;\n            this._data[replaceIndex] = data;\n            this.notifyObservers('replaceRecent', data, time);\n        }\n\n        this.hasData = this._data.length > 0;\n    }\n\n    /**\n     * Get a value from the time series for a specific time.\n     * @param {number} time     The time in the series from where data will\n     *                          be retrieved.\n     * @returns        The data at that time, or undefined if no data exists\n     *                 at that time.\n     */\n    getAt(time) {\n        // It's bad to push and pull data because it opens us up\n        // to timing issues and means you may not get data back promptly - getAt\n        // would need to be async and then timing is not deterministic.\n        // So if data is missing, we just return undefined.\n        // TODO: write up this problem because it would be a good one to use\n        // during a job interview.\n        // Some examples of contention - call getAt, it requires historic data,\n        // while waiting for it new data comes in, which results in events\n        // being executed and newer data being requested - the calculation\n        // result would be 'undefined' (in the non deterministic sense) in this case.\n        time -= (time % this.intervalMs);\n        if (time < this.firstTime || time > this._lastTime) return undefined;\n\n        const index = (time - this.firstTime) / this.intervalMs;\n        return this._data[index];\n    }\n\n    /**\n     * Merge data from another TimeSeriesData instance into this one.\n     * @param {TimeSeriesData} other    Another TimeSeriesData instance, created\n     *                                  with the same interval.\n     * @throws {Error}  If the interval of {@link other} doesn't match the\n     *                  interval of this instance.\n     */\n    merge(other) {\n        if (other.intervalMs != this.intervalMs) {\n            throw new Error('Cannot merge due to different intervals.');\n        }\n        if (other._data.length == 0) return;\n\n        const interval = this.intervalMs;\n\n        let insertI = 0;\n\n        if (this.hasData) {\n            insertI = (other.firstTime - this.firstTime) / interval;\n            if (insertI < 0) {\n                // Will extend the start of the array by the number of required\n                // elements, and also fill with the last data value from other.\n                // This ensures that if the values from other don't fill all the way\n                // to the start of the existing data, there's no gaps.\n                this._checkAndFillLeadingData(other.firstTime, other._data[other._data.length-1]);\n                insertI = 0;\n            } else if (insertI > this._data.length) {\n                this._checkAndFillTrailingData(other.firstTime);\n            }\n        }\n\n        // Do the merge\n        for (\n            let i = 0, time = other.firstTime;\n            i < other._data.length;\n            i++, time += interval, insertI++\n        ) {\n            this._data[insertI] = other._data[i];\n        }\n\n        this.firstTime = Math.min(this.firstTime, other.firstTime);\n        this._lastTime = Math.max(this._lastTime, other._lastTime);\n\n        this.hasData = this._data.length > 0;\n    }\n}\n",
@@ -2696,7 +2956,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 135,
+    "__docId__": 138,
     "kind": "class",
     "name": "TimeSeriesData",
     "memberof": "src/timeseries.mjs",
@@ -2716,7 +2976,7 @@
     "ignore": true
   },
   {
-    "__docId__": 136,
+    "__docId__": 139,
     "kind": "file",
     "name": "src/utils.mjs",
     "content": "/* eslint-disable no-fallthrough */\n\n/**\n * @access package\n */\nexport function intervalToMs(intervalStr, multiplier=1) {\n    switch (intervalStr) {\n        case 'M':\n            throw new Error(\"Months aren't supported because they are too variable. Sorry.\");\n        case 'w':\n            multiplier *= 7;\n        case 'd':\n        case 'DAY':\n            multiplier *= 24;\n        case 'h':\n            multiplier *= 60;\n        case 'm':\n        case 'MINUTE':\n            multiplier *= 60;\n        case 'SECOND': return 1000 * multiplier;\n        default: throw new Error('bad intervalStr');\n    }\n}\n\n/**\n * A chart interval string is a number followed by a time period.\n * Where time period may be any of:\n * m -> minutes; h -> hours; d -> days; w -> weeks; M -> months\n * @access package\n */\nexport function chartIntervalToMs(intervalStr) {\n    const result = intervalStr.match(/^([\\d]+)([mhdwM])$/);\n    if (result === null) {\n        throw new Error(`${intervalStr} is not a valid intervalStr.`);\n    }\n    const num = result[1], period = result[2];\n    const ms = intervalToMs(period, num);\n    return ms;\n}\n\n/**\n * @typedef {any} Any   Any type.\n * @access package\n */\n\n/**\n * @typedef {any} ComparisonType    Any type, but all parameters of this type\n *                                  must be comparable.\n * @access package\n */\n\n/**\n * Given two arrays, with values that can be compared, determine which\n * values 'crossed' from the first to the second.\n * Also determine if the fast and slow (mininum value and maximum value) crossed.\n * For example, for a = [1,2,3,4], and b = [1,3,2,4]. Values 2 and 3 are considered\n * to have crossed as they swapped position.\n * @access package\n *\n * @param {Array<Any>} a      The first array of values.\n * @param {Array<Any>} b      The first array of values.\n * @param {ComparisonType}    fast   The 'fast' value.\n * @param {ComparisonType}    slow   The 'slow' value.\n * @param {function(a:Any): ComparisonType} valueFn   A function for retrieving the\n *                                      comparison value from 'a' and 'b',\n *                                      if they are compound objects and the comparison\n *                                      value is a property.\n *\n * @returns {{fastSlowCross: bool, crossed: Array<Any>}}    An object with\n * properties 'fastSlowCross', which indicates if fast and slow crossed, and\n * the array 'crossed' which contains any elements that crossed, or is empty\n * if no cross occurred.\n *\n * @example\n * const a = [1,2,3,4]\n * const b = [1,4,3,2]\n * const cross = findCross(a, b, 1, 4);\n * console.log(cross); // {fastSlowCross: false, crossed: [4,3,2]\n */\nexport function findCross(a, b, fast, slow, valueFn=(a)=>a) {\n    let firstCross = null;\n    let afterCross = null;\n    // Assume min and max cross unless we see one of them outside of the\n    // cross zone.\n    let fastSlowCross = true;\n\n    // Two separate loops seems to be ever so slightly faster.\n    for (let r = a.length-1; afterCross === null && r > 0; r--) {\n        if (valueFn(a[r]) != valueFn(b[r])) afterCross = r+1;\n        else if (valueFn(a[r]) == fast || valueFn(a[r]) == slow) fastSlowCross = false;\n    }\n\n    if (afterCross === null) return {fastSlowCross:false, crossed:[]};\n\n    for (let l = 0; firstCross === null && l < afterCross; l++) {\n        if (valueFn(a[l]) != valueFn(b[l])) firstCross = l;\n        else if (valueFn(a[l]) == fast || valueFn(a[l]) == slow) fastSlowCross = false;\n    }\n\n    return {fastSlowCross, crossed:b.slice(firstCross, afterCross)};\n}\n\n/**\n * Return a nicely formatted string for a timestamp.\n * @param {number} timestamp    The timestamp\n * @returns {string}            A string containing a human readable\n *                              representation of timestamp.\n */\nexport function timeStr(timestamp) {\n    return new Date(timestamp).toLocaleString();\n}\n",
@@ -2727,7 +2987,7 @@
     "lineNumber": 1
   },
   {
-    "__docId__": 137,
+    "__docId__": 140,
     "kind": "function",
     "name": "intervalToMs",
     "memberof": "src/utils.mjs",
@@ -2766,7 +3026,7 @@
     }
   },
   {
-    "__docId__": 138,
+    "__docId__": 141,
     "kind": "function",
     "name": "chartIntervalToMs",
     "memberof": "src/utils.mjs",
@@ -2796,7 +3056,7 @@
     }
   },
   {
-    "__docId__": 139,
+    "__docId__": 142,
     "kind": "typedef",
     "name": "Any",
     "memberof": "src/utils.mjs",
@@ -2814,7 +3074,7 @@
     "ignore": true
   },
   {
-    "__docId__": 140,
+    "__docId__": 143,
     "kind": "typedef",
     "name": "ComparisonType",
     "memberof": "src/utils.mjs",
@@ -2832,7 +3092,7 @@
     "ignore": true
   },
   {
-    "__docId__": 141,
+    "__docId__": 144,
     "kind": "function",
     "name": "findCross",
     "memberof": "src/utils.mjs",
@@ -2918,7 +3178,7 @@
     "ignore": true
   },
   {
-    "__docId__": 142,
+    "__docId__": 145,
     "kind": "function",
     "name": "timeStr",
     "memberof": "src/utils.mjs",

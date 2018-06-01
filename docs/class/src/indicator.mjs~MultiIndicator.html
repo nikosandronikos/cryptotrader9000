@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <base data-ice="baseUrl" href="../../">
-  <title data-ice="title">CoinPair | cryptotrader9000</title>
+  <title data-ice="title">MultiIndicator | cryptotrader9000</title>
   <link type="text/css" rel="stylesheet" href="css/style.css">
   <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
   <script src="script/prettify/prettify.js"></script>
@@ -49,23 +49,23 @@
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {CoinPair} from &apos;<span><a href="file/src/coin.mjs.html#lineNumber35">cryptotrader9000/src/coin.mjs</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {MultiIndicator} from &apos;<span><a href="file/src/indicator.mjs.html#lineNumber243">cryptotrader9000/src/indicator.mjs</a></span>&apos;</code></pre></div>
   <span data-ice="access">public</span>
   <span data-ice="kind">class</span>
   
   
   
-  <span data-ice="source">| <span><a href="file/src/coin.mjs.html#lineNumber35">source</a></span></span>
+  <span data-ice="source">| <span><a href="file/src/indicator.mjs.html#lineNumber243">source</a></span></span>
 </div>
 
 <div class="self-detail detail">
-  <h1 data-ice="name">CoinPair</h1>
+  <h1 data-ice="name">MultiIndicator</h1>
 
   
 
   
   
-  
+  <div class="flat-list" data-ice="extendsChain"><h4>Extends:</h4><div><span>Object</span> &#x2192; <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span> &#x2192; MultiIndicator</div></div>
   
   
   
@@ -75,8 +75,8 @@
 
   
   
-  <div class="description" data-ice="description"><p>A pair of coins that are traded against one another.
-E.g. BTCETH (Bitcoin / Ethereum).</p>
+  <div class="description" data-ice="description"><p>An interface for a composite indicator - one made up from multiple
+single indicators.</p>
 </div>
   
 
@@ -109,7 +109,7 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(base: <span>string</span>, quote: <span>string</span>, info: <span>object</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, interval: <span>string</span>)</span>
         </p>
       </div>
       <div>
@@ -126,8 +126,9 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
 </tbody>
 </table>
 </div>
-<div data-ice="memberSummary"><h2>Member Summary</h2><table class="summary" data-ice="summary">
-  <thead><tr><td data-ice="title" colspan="3">Public Members</td></tr></thead>
+
+<div data-ice="methodSummary"><h2>Method Summary</h2><table class="summary" data-ice="summary">
+  <thead><tr><td data-ice="title" colspan="3">Public Methods</td></tr></thead>
   <tbody>
   
   <tr data-ice="target">
@@ -144,98 +145,13 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-member-lotSizeFilter">lotSizeFilter</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html#instance-method-getAll">getAll</a></span></span><span class="code" data-ice="signature">(time: <span>*</span>)</span>
         </p>
       </div>
       <div>
         
         
         
-      </div>
-    </td>
-    <td>
-      
-      
-    </td>
-  </tr>
-<tr data-ice="target">
-    <td>
-      <span class="access" data-ice="access">public</span>
-      
-      
-      
-      <span class="override" data-ice="override"></span>
-    </td>
-    <td>
-      <div>
-        <p>
-          
-          
-          
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-member-minNotionalFilter">minNotionalFilter</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
-        </p>
-      </div>
-      <div>
-        
-        
-        
-      </div>
-    </td>
-    <td>
-      
-      
-    </td>
-  </tr>
-<tr data-ice="target">
-    <td>
-      <span class="access" data-ice="access">public</span>
-      
-      
-      
-      <span class="override" data-ice="override"></span>
-    </td>
-    <td>
-      <div>
-        <p>
-          
-          
-          
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-member-priceFilter">priceFilter</a></span></span><span class="code" data-ice="signature">: <span>*</span></span>
-        </p>
-      </div>
-      <div>
-        
-        
-        
-      </div>
-    </td>
-    <td>
-      
-      
-    </td>
-  </tr>
-<tr data-ice="target">
-    <td>
-      <span class="access" data-ice="access">public</span>
-      
-      
-      
-      <span class="override" data-ice="override"></span>
-    </td>
-    <td>
-      <div>
-        <p>
-          
-          
-          
-          <span class="code" data-ice="name"><span><a href="class/src/coin.mjs~CoinPair.html#instance-member-symbol">symbol</a></span></span><span class="code" data-ice="signature">: <span>string</span></span>
-        </p>
-      </div>
-      <div>
-        
-        
-        <div data-ice="description"><p>The symbol used to represent the coin pair.</p>
-</div>
       </div>
     </td>
     <td>
@@ -251,7 +167,6 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
 
 
 
-
 <div data-ice="constructorDetails"><h2 data-ice="title">Public Constructors</h2>
 
 <div class="detail" data-ice="detail">
@@ -262,11 +177,11 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
     
     
     
-    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(base: <span>string</span>, quote: <span>string</span>, info: <span>object</span>)</span>
+    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, interval: <span>string</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber44">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber250">source</a></span></span>
     </span>
   </h3>
 
@@ -286,26 +201,25 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
     <tbody>
     
     <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">base</td>
-      <td data-ice="type" class="code"><span>string</span></td>
+      <td data-ice="name" class="code" data-depth="0">binance</td>
+      <td data-ice="type" class="code"><span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The code representing the base coin.</p>
+      <td data-ice="description"><p>A BinanceAccess object.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">quote</td>
+      <td data-ice="name" class="code" data-depth="0">name</td>
       <td data-ice="type" class="code"><span>string</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The code representing the coin which
-                         base is traded against.</p>
+      <td data-ice="description"><p>A name for the indicator.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
-      <td data-ice="name" class="code" data-depth="0">info</td>
-      <td data-ice="type" class="code"><span>object</span></td>
+      <td data-ice="name" class="code" data-depth="0">interval</td>
+      <td data-ice="type" class="code"><span>string</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"><p>The coin information obtained from Binance
-                         via BinanceCommands.exchangeInfo.</p>
+      <td data-ice="description"><p>The interval for the indicator
+                                     in string form (see <span>chartIntervalToMs</span>.</p>
 </td>
     </tr>
 </tbody>
@@ -319,186 +233,61 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
 
   
 
-  <div data-ice="throwWrap">
-    <h4>Throw:</h4>
-    <table>
-      <tbody>
+  
+
+  
+
+  
+
+  
+
+  
+  
+</div>
+</div>
+
+<div data-ice="methodDetails"><h2 data-ice="title">Public Methods</h2>
+
+<div class="detail" data-ice="detail">
+  <h3 data-ice="anchor" id="instance-method-getAll">
+    <span class="access" data-ice="access">public</span>
+    
+    
+    
+    
+    
+    <span class="code" data-ice="name">getAll</span><span class="code" data-ice="signature">(time: <span>*</span>)</span>
+    <span class="right-info">
       
-      <tr class="throw" data-ice="throw">
-        <td><p data-ice="throwName"><span>Error</span></p></td>
-        <td data-ice="throwDesc"><p>If trading is disabled on the exchange.</p>
-</td>
-      </tr>
+      
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber255">source</a></span></span>
+    </span>
+  </h3>
+
+  
+  
+  
+  
+
+  
+
+  <div data-ice="properties"><div data-ice="properties">
+  <h4 data-ice="title">Params:</h4>
+  <table class="params">
+    <thead>
+    <tr><td>Name</td><td>Type</td><td>Attribute</td><td>Description</td></tr>
+    </thead>
+    <tbody>
+    
+    <tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">time</td>
+      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"></td>
+    </tr>
 </tbody>
-    </table>
-  </div>
-
-  
-
-  
-
-  
-
-  
-  
+  </table>
 </div>
-</div>
-<div data-ice="memberDetails"><h2 data-ice="title">Public Members</h2>
-
-<div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-lotSizeFilter">
-    <span class="access" data-ice="access">public</span>
-    
-    
-    
-    
-    
-    <span class="code" data-ice="name">lotSizeFilter</span><span class="code" data-ice="signature">: <span>*</span></span>
-    <span class="right-info">
-      
-      
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber60">source</a></span></span>
-    </span>
-  </h3>
-
-  
-  
-  
-  
-
-  
-
-  <div data-ice="properties">
-</div>
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-  
-</div>
-<div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-minNotionalFilter">
-    <span class="access" data-ice="access">public</span>
-    
-    
-    
-    
-    
-    <span class="code" data-ice="name">minNotionalFilter</span><span class="code" data-ice="signature">: <span>*</span></span>
-    <span class="right-info">
-      
-      
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber63">source</a></span></span>
-    </span>
-  </h3>
-
-  
-  
-  
-  
-
-  
-
-  <div data-ice="properties">
-</div>
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-  
-</div>
-<div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-priceFilter">
-    <span class="access" data-ice="access">public</span>
-    
-    
-    
-    
-    
-    <span class="code" data-ice="name">priceFilter</span><span class="code" data-ice="signature">: <span>*</span></span>
-    <span class="right-info">
-      
-      
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber57">source</a></span></span>
-    </span>
-  </h3>
-
-  
-  
-  
-  
-
-  
-
-  <div data-ice="properties">
-</div>
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-  
-</div>
-<div class="detail" data-ice="detail">
-  <h3 data-ice="anchor" id="instance-member-symbol">
-    <span class="access" data-ice="access">public</span>
-    
-    
-    
-    
-    
-    <span class="code" data-ice="name">symbol</span><span class="code" data-ice="signature">: <span>string</span></span>
-    <span class="right-info">
-      
-      
-      <span data-ice="source"><span><a href="file/src/coin.mjs.html#lineNumber48">source</a></span></span>
-    </span>
-  </h3>
-
-  
-  
-  
-  <div data-ice="description"><p>The symbol used to represent the coin pair.</p>
-</div>
-
-  
-
-  <div data-ice="properties">
 </div>
 
   
@@ -519,7 +308,6 @@ E.g. BTCETH (Bitcoin / Ethereum).</p>
   
 </div>
 </div>
-
 </div>
 
 <footer class="footer">

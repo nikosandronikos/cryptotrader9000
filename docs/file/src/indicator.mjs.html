@@ -41,6 +41,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~SingleIndicator.html">SingleIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
@@ -59,14 +60,17 @@ Big.DP = 8;
 
 const emaHistoryLength = 20;
 
-// Will update based on ticker.
-// But will also need historical data.
 export class Indicator extends ObservableMixin(Object) {
+    /**
+     * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
+     * @param {string}          interval    The interval for the indicator
+     *                                      in string form (see {@link chartIntervalToMs}.
+     */
     constructor(binance, name, interval) {
         super();
         this.binance = binance;
         this.name = name;
-        this.data = null;
         this.interval = interval;
         this.intervalMs = chartIntervalToMs(interval);
     }
@@ -75,6 +79,12 @@ export class Indicator extends ObservableMixin(Object) {
     prepHistory(startTime) {
         throw new Error(&apos;Implement in sub-class.&apos;);
     }
+}
+
+export class SingleIndicator extends Indicator {
+    constructor(binance, name, interval) {
+        super(binance, name, interval);
+    }
 
     // eslint-disable-next-line no-unused-vars
     getAt(time) {
@@ -82,14 +92,31 @@ export class Indicator extends ObservableMixin(Object) {
     }
 }
 
-export class PriceIndicator extends Indicator {
+export class PriceIndicator extends SingleIndicator {
+    /**
+     * Create a PriceIndicator instance. init must be called before use.
+     * Typically, the helper function {@link createAndInit} should be used
+     * to create PriceIndicator instances.
+     * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
+     * @param {CoinPair}        coinPair    A pair of coins - the price value
+     *                                      of the indicator is the quote price
+     *                                      for the pair.
+     * @param {string}          interval    The interval for the indicator
+     *                                      in string form (see {@link chartIntervalToMs}.
+     */
     constructor(binance, name, coinPair, interval) {
         super(binance, name, interval);
         this.coinPair = coinPair;
-        this.data = null;
+        this._data = null;
         this._stream = null;
     }
 
+    /**
+     * Prepare a PriceIndicator for use.
+     * This method establishes the required network connections to gather
+     * price data.
+     */
     async init() {
         // Set up stream
         this.stream = await BinanceStreamKlines.create(
@@ -99,15 +126,26 @@ export class PriceIndicator extends Indicator {
             &apos;k.c&apos;   // close price
         );
 
-        this.data = new TimeSeriesData(this.interval);
+        this._data = new TimeSeriesData(this.interval);
 
         // Feed stream data into the TimeSeriesData store
         this.stream.addObserver(&apos;newData&apos;, (time, data) =&gt; {
-            this.data.addData(time, data);
+            this._data.addData(time, data);
             this.notifyObservers(&apos;update&apos;, time, data);
         });
     }
 
+    /**
+     * A helper method to create and initialise a PriceIndcator instance.
+     * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
+     * @param {CoinPair}        coinPair    A pair of coins - the price value
+     *                                      of the indicator is the quote price
+     *                                      for the pair.
+     * @param {string}          interval    The interval for the indicator
+     *                                      in string form (see {@link chartIntervalToMs}.
+     * @returns {PriceIndicator} An instance that is ready to use.
+     */
     static async createAndInit(binance, name, coinPair, interval) {
         log.info(`Creating PriceIndicator for ${name} ${interval}`);
         const ind = new PriceIndicator(binance, name, coinPair, interval);
@@ -115,31 +153,48 @@ export class PriceIndicator extends Indicator {
         return ind;
     }
 
+    /**
+     * Ensure this PriceIndicator instance has historical data from startTime
+     * to the current time.
+     * Call this method prior to retreiving data for any time value before
+     * the creation time of this instance.
+     * @param {number}  startTime   The earliest required data.
+     */
     async prepHistory(startTime) {
         // Access pattern is to generally use all data following a sample
         // so load everything from startTime onwards.
-        const endTime = this.data.hasData ? this.data.firstTime : this.binance.getTimestamp();
+        const endTime = this._data.hasData ? this._data.firstTime : this.binance.getTimestamp();
         if (endTime  &lt; startTime) return;
         const history = await this.stream.getHistoryFromTo(startTime, endTime);
         log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);
-        this.data.merge(history);
+        this._data.merge(history);
     }
 
+    /**
+     * Get the indicator value for {@link time}.
+     * @param {number}  time    A timestamp in ms.
+     * @returns         The data value for the requested time.
+     */
     getAt(time) {
-        const data = this.data.getAt(time);
+        const data = this._data.getAt(time);
         if (data == undefined) {
             log.debug(
                 `PriceIndicator ${this.name}. No data for ${timeStr(time)}`+
-                ` ${timeStr(this.data.firstData)}`
+                ` ${timeStr(this._data.firstData)}`
             );
+            throw new Error(`${this.name} has no data for ${timeStr(time)} (${time}`);
         }
-        return this.data.getAt(time);
+        return this._data.getAt(time);
     }
 }
 
-export class EMAIndicator extends Indicator {
+export class EMAIndicator extends SingleIndicator {
     /**
+     * Create an EMAIndicator instance. init must be called before use.
+     * Typically, the helper function {@link createAndInit} should be used
+     * to any instances.
      * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
      * @param {Indicator}       source      The data source that an EMA
      *                                      is calculated for.
      * @param {number}          nPeriods    The number of periods over which to
@@ -149,13 +204,14 @@ export class EMAIndicator extends Indicator {
         super(binance, name, source.interval);
         this.nPeriods = nPeriods;
         this.source = source;
-        this.data = new TimeSeriesData(this.interval, (time) =&gt; {
-            const whichEma = `EMAIndicator(${this.nPeriods})`;
-            log.debug(`${whichEma}: Calculating history for ${timeStr(time)}.`);
-            this._calculate(time);
-        });
+        this._data = new TimeSeriesData(this.interval);
     }
 
+    /**
+     * Prepare the indicator for use.
+     * This method establishes the required network connections to gather
+     * price data.
+     */
     async init() {
         const currentTime = this.binance.getTimestamp();
         const historyStart = currentTime - emaHistoryLength * this.intervalMs;
@@ -171,6 +227,16 @@ export class EMAIndicator extends Indicator {
         this.source.addObserver(&apos;update&apos;, (time, data) =&gt; this._calculate(time));
     }
 
+    /**
+     * A helper method to create and initialise the indicator instance.
+     * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
+     * @param {Indicator}       source      The data source that an EMA
+     *                                      is calculated for.
+     * @param {number}          nPeriods    The number of periods over which to
+     *                                      calculate the EMA.
+     * @returns {EMAIndicator}  An instance that is ready to use.
+     */
     static async createAndInit(binance, name, source, nPeriods) {
         log.info(`Creating EMAIndicator for ${name} (${nPeriods}) ${source.interval}`);
         const ema = new EMAIndicator(binance, name, source, nPeriods);
@@ -184,32 +250,54 @@ export class EMAIndicator extends Indicator {
             throw new Error(&apos;Data missing.&apos;);
         }
         // Either last EMA if available or last close price
-        let last = this.data.getAt(time - this.intervalMs);
+        let last = this._data.getAt(time - this.intervalMs);
         if (last === undefined) last = current;
 
         // Weighting for most recent close price.
         const multiplier = Big(2).div(this.nPeriods + 1);
 
         const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);
-        this.data.addData(time, ema);
+        this._data.addData(time, ema);
         this.notifyObservers(&apos;update&apos;, time, ema, current);
         return ema;
     }
 
+    /**
+     * Ensure this EMAIndicator instance has historical data from startTime
+     * to the current time.
+     * Call this method prior to retreiving data for any time value before
+     * the creation time of this instance.
+     * @param {number}  startTime   The earliest required data.
+     */
     async prepHistory(startTime) {
         await this.source.prepHistory(startTime);
         log.info(`EMAIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
-        for (let time = startTime; time &lt; this.data.firstTime; time += this.intervalMs) {
+        for (let time = startTime; time &lt; this._data.firstTime; time += this.intervalMs) {
             this._calculate(time);
         }
     }
 
+    /**
+     * Get the indicator value for {@link time}.
+     * @param {number}  time    A timestamp in ms.
+     * @returns         The data value for the requested time.
+     */
     getAt(time) {
-        return this.data.getAt(time);
+        return this._data.getAt(time);
     }
 }
 
+/**
+ * An interface for a composite indicator - one made up from multiple
+ * single indicators.
+ */
 export class MultiIndicator extends Indicator {
+    /**
+     * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
+     * @param {string}          interval    The interval for the indicator
+     *                                      in string form (see {@link chartIntervalToMs}.
+     */
     constructor(binance, name, interval) {
         super(binance, name, interval);
     }
@@ -223,6 +311,7 @@ export class MultiIndicator extends Indicator {
 export class MultiEMAIndicator extends Indicator {
     /**
      * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
      * @param {Indicator}       emaSource   The source of data for calculating
      *                                      each EMA in the set.
      * @param {Array}           lengths     An array containing the period for
@@ -245,6 +334,11 @@ export class MultiEMAIndicator extends Indicator {
         this.fast = Math.min(...lengths);
     }
 
+    /**
+     * Prepare the indicator for use.
+     * This method establishes the required network connections to gather
+     * price data.
+     */
     async init() {
         const currentTime = this.binance.getTimestamp();
         const historyStart = currentTime - emaHistoryLength * this.intervalMs;
@@ -297,8 +391,8 @@ export class MultiEMAIndicator extends Indicator {
         // index 0 will be fastest EMA, when decreasing index 0 will be slowest.
         // Highest price is index 0.
         newOrder.sort((a,b) =&gt; {
-            const aPrice = a.data.getAt(time);
-            const bPrice = b.data.getAt(time);
+            const aPrice = a.getAt(time);
+            const bPrice = b.getAt(time);
 
             if (aPrice === undefined || bPrice === undefined) {
                 throw new Error(&apos;MultiEMA: Price data missing.&apos;);
@@ -332,6 +426,19 @@ export class MultiEMAIndicator extends Indicator {
         this.notifyObservers(&apos;cross&apos;, cross.crossed, time, this.currentPrice);
     }
 
+    /**
+     * A helper method to create and initialise a MultiEMAIndcator instance.
+     * @param {BinanceAccess}   binance     A BinanceAccess object.
+     * @param {string}          name        A name for the indicator.
+     * @param {Indicator}       emaSource   The source of data for calculating
+     *                                      each EMA in the set.
+     * @param {Array}           lengths     An array containing the period for
+     *                                      each EMA in the set.
+     *                                      The number of values in this array
+     *                                      indicates how many EMAIndicators
+     *                                      are included in the set.
+     * @returns {MultiEMAIndicator} An instance that is ready to use.
+     */
     static async createAndInit(binance, name, emaSource, lengths) {
         log.info(`Creating MultiEMAIndicator ${name} (${emaSource.interval}) ${lengths}`);
         const ind = new MultiEMAIndicator(binance, name, emaSource, lengths);
@@ -344,6 +451,12 @@ export class MultiEMAIndicator extends Indicator {
         // FIXME: What would be a useful single value to return here?
     }
 
+    /**
+     * Get the values for all sub indicators for {@link time}.
+     * @param {number}  time    A timestamp in ms.
+     * @returns {Array}         An array containing the data values for the
+     *                          requested time.
+     */
     getAll(time) {
         const results = [];
         for (const ema of this.emas) {

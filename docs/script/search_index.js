@@ -78,6 +78,12 @@ window.esdocSearchIndex = [
     "class"
   ],
   [
+    "cryptotrader9000/src/indicator.mjs~singleindicator",
+    "class/src/indicator.mjs~SingleIndicator.html",
+    "<span>SingleIndicator</span> <span class=\"search-result-import-path\">cryptotrader9000/src/indicator.mjs</span>",
+    "class"
+  ],
+  [
     "cryptotrader9000/src/utils.mjs~timestr",
     "function/index.html#static-function-timeStr",
     "<span>timeStr</span> <span class=\"search-result-import-path\">cryptotrader9000/src/utils.mjs</span>",
@@ -276,12 +282,6 @@ window.esdocSearchIndex = [
     "method"
   ],
   [
-    "src/indicator.mjs~emaindicator#data",
-    "class/src/indicator.mjs~EMAIndicator.html#instance-member-data",
-    "src/indicator.mjs~EMAIndicator#data",
-    "member"
-  ],
-  [
     "src/indicator.mjs~emaindicator#getat",
     "class/src/indicator.mjs~EMAIndicator.html#instance-method-getAt",
     "src/indicator.mjs~EMAIndicator#getAt",
@@ -420,12 +420,6 @@ window.esdocSearchIndex = [
     "method"
   ],
   [
-    "src/indicator.mjs~priceindicator#data",
-    "class/src/indicator.mjs~PriceIndicator.html#instance-member-data",
-    "src/indicator.mjs~PriceIndicator#data",
-    "member"
-  ],
-  [
     "src/indicator.mjs~priceindicator#getat",
     "class/src/indicator.mjs~PriceIndicator.html#instance-method-getAt",
     "src/indicator.mjs~PriceIndicator#getAt",
@@ -453,6 +447,18 @@ window.esdocSearchIndex = [
     "src/indicator.mjs~priceindicator.createandinit",
     "class/src/indicator.mjs~PriceIndicator.html#static-method-createAndInit",
     "src/indicator.mjs~PriceIndicator.createAndInit",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~singleindicator#constructor",
+    "class/src/indicator.mjs~SingleIndicator.html#instance-constructor-constructor",
+    "src/indicator.mjs~SingleIndicator#constructor",
+    "method"
+  ],
+  [
+    "src/indicator.mjs~singleindicator#getat",
+    "class/src/indicator.mjs~SingleIndicator.html#instance-method-getAt",
+    "src/indicator.mjs~SingleIndicator#getAt",
     "method"
   ],
   [

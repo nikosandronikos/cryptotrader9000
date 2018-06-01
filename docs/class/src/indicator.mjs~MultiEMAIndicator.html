@@ -41,6 +41,7 @@
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~MultiIndicator.html">MultiIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~PriceIndicator.html">PriceIndicator</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/indicator.mjs~SingleIndicator.html">SingleIndicator</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-timeStr">timeStr</a></span></span></li>
 <li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-BinanceCommands">BinanceCommands</a></span></span></li>
 </ul>
@@ -48,13 +49,13 @@
 </nav>
 
 <div class="content" data-ice="content"><div class="header-notice">
-  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {MultiEMAIndicator} from &apos;<span><a href="file/src/indicator.mjs.html#lineNumber173">cryptotrader9000/src/indicator.mjs</a></span>&apos;</code></pre></div>
+  <div data-ice="importPath" class="import-path"><pre class="prettyprint"><code data-ice="importPathCode">import {MultiEMAIndicator} from &apos;<span><a href="file/src/indicator.mjs.html#lineNumber260">cryptotrader9000/src/indicator.mjs</a></span>&apos;</code></pre></div>
   <span data-ice="access">public</span>
   <span data-ice="kind">class</span>
   
   
   
-  <span data-ice="source">| <span><a href="file/src/indicator.mjs.html#lineNumber173">source</a></span></span>
+  <span data-ice="source">| <span><a href="file/src/indicator.mjs.html#lineNumber260">source</a></span></span>
 </div>
 
 <div class="self-detail detail">
@@ -105,13 +106,14 @@
           
           <span data-ice="async">async</span>
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html#static-method-createAndInit">createAndInit</a></span></span><span class="code" data-ice="signature">(binance: <span>*</span>, name: <span>*</span>, emaSource: <span>*</span>, lengths: <span>*</span>): <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html#static-method-createAndInit">createAndInit</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, emaSource: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, lengths: <span>Array</span>): <span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>A helper method to create and initialise a MultiEMAIndcator instance.</p>
+</div>
       </div>
     </td>
     <td>
@@ -140,7 +142,7 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, emaSource: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, lengths: <span>Array</span>)</span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html#instance-constructor-constructor">constructor</a></span></span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, emaSource: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, lengths: <span>Array</span>)</span>
         </p>
       </div>
       <div>
@@ -406,13 +408,14 @@
           
           
           
-          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html#instance-method-getAll">getAll</a></span></span><span class="code" data-ice="signature">(time: <span>*</span>): <span>*</span></span>
+          <span class="code" data-ice="name"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html#instance-method-getAll">getAll</a></span></span><span class="code" data-ice="signature">(time: <span>number</span>): <span>Array</span></span>
         </p>
       </div>
       <div>
         
         
-        
+        <div data-ice="description"><p>Get the values for all sub indicators for <span>time</span>.</p>
+</div>
       </div>
     </td>
     <td>
@@ -468,7 +471,8 @@
       <div>
         
         
-        
+        <div data-ice="description"><p>Prepare the indicator for use.</p>
+</div>
       </div>
     </td>
     <td>
@@ -493,18 +497,19 @@
     
     <span data-ice="async">async</span>
     
-    <span class="code" data-ice="name">createAndInit</span><span class="code" data-ice="signature">(binance: <span>*</span>, name: <span>*</span>, emaSource: <span>*</span>, lengths: <span>*</span>): <span>*</span></span>
+    <span class="code" data-ice="name">createAndInit</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, emaSource: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, lengths: <span>Array</span>): <span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber285">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber391">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>A helper method to create and initialise a MultiEMAIndcator instance.</p>
+</div>
 
   
 
@@ -518,27 +523,36 @@
     
     <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">binance</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="type" class="code"><span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>A BinanceAccess object.</p>
+</td>
     </tr>
 <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">name</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="type" class="code"><span>string</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>A name for the indicator.</p>
+</td>
     </tr>
 <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">emaSource</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="type" class="code"><span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>The source of data for calculating
+                                     each EMA in the set.</p>
+</td>
     </tr>
 <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">lengths</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="type" class="code"><span>Array</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>An array containing the period for
+                                     each EMA in the set.
+                                     The number of values in this array
+                                     indicates how many EMAIndicators
+                                     are included in the set.</p>
+</td>
     </tr>
 </tbody>
   </table>
@@ -550,8 +564,9 @@
     <table>
       <tbody>
         <tr>
-          <td class="return-type code" data-ice="returnType"><span>*</span></td>
-          
+          <td class="return-type code" data-ice="returnType"><span><a href="class/src/indicator.mjs~MultiEMAIndicator.html">MultiEMAIndicator</a></span></td>
+          <td class="return-desc" data-ice="returnDescription"><p>An instance that is ready to use.</p>
+</td>
         </tr>
       </tbody>
     </table>
@@ -585,11 +600,11 @@
     
     
     
-    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, emaSource: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, lengths: <span>Array</span>)</span>
+    <span class="code" data-ice="name">constructor</span><span class="code" data-ice="signature">(binance: <span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span>, name: <span>string</span>, emaSource: <span><a href="class/src/indicator.mjs~Indicator.html">Indicator</a></span>, lengths: <span>Array</span>)</span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber184">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber272">source</a></span></span>
     </span>
   </h3>
 
@@ -613,6 +628,13 @@
       <td data-ice="type" class="code"><span><a href="class/src/binance.mjs~BinanceAccess.html">BinanceAccess</a></span></td>
       <td data-ice="appendix"></td>
       <td data-ice="description"><p>A BinanceAccess object.</p>
+</td>
+    </tr>
+<tr data-ice="property" data-depth="0">
+      <td data-ice="name" class="code" data-depth="0">name</td>
+      <td data-ice="type" class="code"><span>string</span></td>
+      <td data-ice="appendix"></td>
+      <td data-ice="description"><p>A name for the indicator.</p>
 </td>
     </tr>
 <tr data-ice="property" data-depth="0">
@@ -671,7 +693,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber193">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber281">source</a></span></span>
     </span>
   </h3>
 
@@ -714,7 +736,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber191">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber279">source</a></span></span>
     </span>
   </h3>
 
@@ -757,7 +779,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber189">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber277">source</a></span></span>
     </span>
   </h3>
 
@@ -800,7 +822,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber195">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber283">source</a></span></span>
     </span>
   </h3>
 
@@ -843,7 +865,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber187">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber275">source</a></span></span>
     </span>
   </h3>
 
@@ -886,7 +908,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber192">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber280">source</a></span></span>
     </span>
   </h3>
 
@@ -929,7 +951,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber190">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber278">source</a></span></span>
     </span>
   </h3>
 
@@ -972,7 +994,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber194">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber282">source</a></span></span>
     </span>
   </h3>
 
@@ -1014,18 +1036,19 @@
     
     
     
-    <span class="code" data-ice="name">getAll</span><span class="code" data-ice="signature">(time: <span>*</span>): <span>*</span></span>
+    <span class="code" data-ice="name">getAll</span><span class="code" data-ice="signature">(time: <span>number</span>): <span>Array</span></span>
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber297">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber409">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Get the values for all sub indicators for <span>time</span>.</p>
+</div>
 
   
 
@@ -1039,9 +1062,10 @@
     
     <tr data-ice="property" data-depth="0">
       <td data-ice="name" class="code" data-depth="0">time</td>
-      <td data-ice="type" class="code"><span>*</span></td>
+      <td data-ice="type" class="code"><span>number</span></td>
       <td data-ice="appendix"></td>
-      <td data-ice="description"></td>
+      <td data-ice="description"><p>A timestamp in ms.</p>
+</td>
     </tr>
 </tbody>
   </table>
@@ -1053,8 +1077,10 @@
     <table>
       <tbody>
         <tr>
-          <td class="return-type code" data-ice="returnType"><span>*</span></td>
-          
+          <td class="return-type code" data-ice="returnType"><span>Array</span></td>
+          <td class="return-desc" data-ice="returnDescription"><p>An array containing the data values for the
+                         requested time.</p>
+</td>
         </tr>
       </tbody>
     </table>
@@ -1089,7 +1115,7 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber293">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber399">source</a></span></span>
     </span>
   </h3>
 
@@ -1148,14 +1174,17 @@
     <span class="right-info">
       
       
-      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber198">source</a></span></span>
+      <span data-ice="source"><span><a href="file/src/indicator.mjs.html#lineNumber291">source</a></span></span>
     </span>
   </h3>
 
   
   
   
-  
+  <div data-ice="description"><p>Prepare the indicator for use.
+This method establishes the required network connections to gather
+price data.</p>
+</div>
 
   
 
