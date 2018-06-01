@@ -395,11 +395,6 @@ export class MultiEMAIndicator extends Indicator {
         return ind;
     }
 
-    // eslint-disable-next-line no-unused-vars
-    getAt(time) {
-        // FIXME: What would be a useful single value to return here?
-    }
-
     /**
      * Get the values for all sub indicators for {@link time}.
      * @param {number}  time    A timestamp in ms.
