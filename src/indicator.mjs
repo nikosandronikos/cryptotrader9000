@@ -33,11 +33,24 @@ export class Indicator extends ObservableMixin(Object) {
 export class SingleIndicator extends Indicator {
     constructor(binance, name, interval) {
         super(binance, name, interval);
+        this._data = new TimeSeriesData(interval);
     }
 
-    // eslint-disable-next-line no-unused-vars
+    /**
+     * Get the indicator value for {@link time}.
+     * @param {number}  time    A timestamp in ms.
+     * @returns         The data value for the requested time.
+     */
     getAt(time) {
-        throw 'Implement in sub-class.';
+        const data = this._data.getAt(time);
+        if (data == undefined) {
+            log.debug(
+                `SingleIndicator ${this.name}. No data for ${timeStr(time)}`+
+                ` ${timeStr(this._data.firstData)}`
+            );
+            throw new Error(`${this.name} has no data for ${timeStr(time)} (${time}`);
+        }
+        return this._data.getAt(time);
     }
 }
 
@@ -57,7 +70,6 @@ export class PriceIndicator extends SingleIndicator {
     constructor(binance, name, coinPair, interval) {
         super(binance, name, interval);
         this.coinPair = coinPair;
-        this._data = null;
         this._stream = null;
     }
 
@@ -74,8 +86,6 @@ export class PriceIndicator extends SingleIndicator {
             this.interval,
             'k.c'   // close price
         );
-
-        this._data = new TimeSeriesData(this.interval);
 
         // Feed stream data into the TimeSeriesData store
         this.stream.addObserver('newData', (time, data) => {
@@ -118,23 +128,6 @@ export class PriceIndicator extends SingleIndicator {
         log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);
         this._data.merge(history);
     }
-
-    /**
-     * Get the indicator value for {@link time}.
-     * @param {number}  time    A timestamp in ms.
-     * @returns         The data value for the requested time.
-     */
-    getAt(time) {
-        const data = this._data.getAt(time);
-        if (data == undefined) {
-            log.debug(
-                `PriceIndicator ${this.name}. No data for ${timeStr(time)}`+
-                ` ${timeStr(this._data.firstData)}`
-            );
-            throw new Error(`${this.name} has no data for ${timeStr(time)} (${time}`);
-        }
-        return this._data.getAt(time);
-    }
 }
 
 export class EMAIndicator extends SingleIndicator {
@@ -153,7 +146,6 @@ export class EMAIndicator extends SingleIndicator {
         super(binance, name, source.interval);
         this.nPeriods = nPeriods;
         this.source = source;
-        this._data = new TimeSeriesData(this.interval);
     }
 
     /**
@@ -224,15 +216,6 @@ export class EMAIndicator extends SingleIndicator {
         for (let time = startTime; time < this._data.firstTime; time += this.intervalMs) {
             this._calculate(time);
         }
-    }
-
-    /**
-     * Get the indicator value for {@link time}.
-     * @param {number}  time    A timestamp in ms.
-     * @returns         The data value for the requested time.
-     */
-    getAt(time) {
-        return this._data.getAt(time);
     }
 }
 
