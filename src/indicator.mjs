@@ -240,7 +240,7 @@ export class MultiIndicator extends Indicator {
     }
 }
 
-export class MultiEMAIndicator extends Indicator {
+export class MultiEMAIndicator extends MultiIndicator {
     /**
      * @param {BinanceAccess}   binance     A BinanceAccess object.
      * @param {string}          name        A name for the indicator.
