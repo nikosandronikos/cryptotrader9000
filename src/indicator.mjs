@@ -393,33 +393,58 @@ export class MultiEMAIndicator extends MultiIndicator {
     }
 }
 
-//export class MACDIndicator extends Indicator {
-//    constructor(binance, coinPair, interval) {
-//        super(binance);
-//        this.interval = interval;
-//        this._emas = [];
-//        this._macdData = new TimeSeriesData(interval);
-//        this._signalData = new TimeSeriesData(interval);
-//    }
-//
-//    async init() {
-//        const history = 20;
-//
-//        this._emas.push(
-//            await EMAIndicator.createAndInit(
-//                this.binance,
-//                this.coinPair,
-//                12,
-//                this.interval,
-//                history
-//            ),
-//            await EMAIndicator.createAndInit(
-//                this.binance,
-//                this.coinPair,
-//                26,
-//                this.interval,
-//                history
-//            )
-//        );
-//    }
-//}
+export class DifferenceIndicator extends SingleIndicator {
+    constructor(binance, name, sourceA, sourceB) {
+        if (sourceA.interval != sourceB.interval) {
+            throw new Error('Intervals not equal');
+        }
+        super(binance, name, sourceA.interval);
+        this._emas = [sourceA, sourceB];
+        this._data = new TimeSeriesData(sourceA.interval);
+        this._nUpdates = 0;
+        this._updateTime = 0;
+    }
+
+    async init() {
+        const currentTime = this.binance.getTimestamp();
+        const historyStart = currentTime - emaHistoryLength * this.intervalMs;
+
+        for (const ema of this._emas) {
+            await ema.prepHistory(historyStart);
+        }
+
+        for (let time = historyStart; time < currentTime; time += this.intervalMs) {
+            this._calculate(time);
+        }
+
+        for (const ema of this._emas) {
+            ema.addObserver('update', (time, ema, price) => {
+                const oldtime = time;
+                time -= (time % this.intervalMs);
+                this._nUpdates ++;
+                if (time == this._updateTime && this._nUpdates == this._emas.length) {
+                    this._calculate(time);
+                    this._nUpdates = 0;
+                } else if (time > this._updateTime) {
+                    this._updateTime = time;
+                    this._nUpdates = 1;
+                }
+            });
+        }
+    }
+
+    static async createAndInit(binance, name, sourceA, sourceB) {
+        const ind = new DifferenceIndicator(binance, name, sourceA, sourceB);
+        await ind.init();
+        return ind;
+    }
+
+    _calculate(time) {
+        const valueA = this._emas[0].getAt(time);
+        const valueB = this._emas[1].getAt(time);
+        const difference = valueA.sub(valueB);
+        this._data.addData(time, difference);
+        this.notifyObservers('update', time, difference, valueA, valueB);
+        return difference;
+    }
+}
