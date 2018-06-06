@@ -32,7 +32,7 @@ test('DifferenceIndicator: calculate', (t) => {
     }
     t.equal(ind._data._data.length, 10, 'data length correct');
     t.equal(ind._data.firstTime, 0, 'firstTime correct');
-    t.equal(ind._data._lastTime, intervalMs * 9, 'lastTime correct');
+    t.equal(ind._data.lastTime, intervalMs * 9, 'lastTime correct');
     t.end();
 });
 
@@ -84,7 +84,7 @@ test('DifferenceIndicator: creation sanity test', (t) => {
             t.equal(ind._nUpdates, 1, `${i}: nUpdates == 1`);
             bObserver(time, null, null);
             t.equal(ind._nUpdates, 0, `${i}: nUpdates == 0`);
-            t.equal(ind._data._lastTime, time, `${i}: lastTime == ${time}`);
+            t.equal(ind._data.lastTime, time, `${i}: lastTime == ${time}`);
         }
 
         for (let i = 0, time = 0; time < intervalMs * 10; time += intervalMs, i++) {

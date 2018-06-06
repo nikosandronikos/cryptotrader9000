@@ -16,7 +16,7 @@ test('TimeSeriesData: add data front to back', (t) => {
     }
 
     t.equal(ts.firstTime, 0);
-    t.equal(ts._lastTime, (i - 1) * intervalMs);
+    t.equal(ts.lastTime, (i - 1) * intervalMs);
     let lastV = -1;
     for (const v of ts._data) {
         t.equal(v > lastV, true);
@@ -39,7 +39,7 @@ test('TimeSeriesData: add data back to front', (t) => {
     }
 
     t.equal(ts.firstTime, 1 * intervalMs);
-    t.equal(ts._lastTime, n * intervalMs);
+    t.equal(ts.lastTime, n * intervalMs);
     let lastV = -1;
     for (const v of ts._data) {
         t.equal(v > lastV, true);
@@ -116,7 +116,7 @@ test('TimeSeriesData: add data miss intervals at start', (t) => {
     ts.addData(intervalMs * 5, 1);
     t.equal(ts._data.length, 1, 'a');
     t.equal(ts.firstTime, intervalMs * 5, 'a.2');
-    t.equal(ts._lastTime, intervalMs * 5, 'a.3');
+    t.equal(ts.lastTime, intervalMs * 5, 'a.3');
 
     ts.addData(intervalMs * 3, 3);
     t.equal(ts._data.length, 3, 'b');
@@ -194,7 +194,7 @@ test('TimeSeriesData: merge', (t) => {
     ts.merge(tsB);
     t.deepEqual(ts._data, [5,6,7,7,7,7,7,7,7,7,1,2,3,4], 'b');
     t.equal(ts.firstTime, tsB.firstTime, 'b');
-    t.equal(ts._lastTime, intervalMs * 4 + baseTimeOffset, 'b');
+    t.equal(ts.lastTime, intervalMs * 4 + baseTimeOffset, 'b');
 
     const tsC = new TimeSeriesData('1m');
     tsC.addData(intervalMs * 5, 8);
@@ -202,7 +202,7 @@ test('TimeSeriesData: merge', (t) => {
     ts.merge(tsC);
     t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4], 'c');
     t.equal(ts.firstTime, tsB.firstTime, 'c');
-    t.equal(ts._lastTime, intervalMs * 4 + baseTimeOffset, 'c');
+    t.equal(ts.lastTime, intervalMs * 4 + baseTimeOffset, 'c');
 
     const tsD = new TimeSeriesData('1m');
     tsD.addData(intervalMs * 5 + baseTimeOffset, 10);
@@ -210,7 +210,7 @@ test('TimeSeriesData: merge', (t) => {
     ts.merge(tsD);
     t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11], 'd');
     t.equal(ts.firstTime, tsB.firstTime, 'd');
-    t.equal(ts._lastTime, intervalMs * 6 + baseTimeOffset, 'd');
+    t.equal(ts.lastTime, intervalMs * 6 + baseTimeOffset, 'd');
 
     const tsE = new TimeSeriesData('1m');
     tsE.addData(intervalMs * 9 + baseTimeOffset, 12);
@@ -219,18 +219,18 @@ test('TimeSeriesData: merge', (t) => {
     ts.merge(tsE);
     t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11,11,11,12,13,14], 'e');
     t.equal(ts.firstTime, tsB.firstTime, 'e');
-    t.equal(ts._lastTime, intervalMs * 11 + baseTimeOffset, 'e');
+    t.equal(ts.lastTime, intervalMs * 11 + baseTimeOffset, 'e');
 
     const tsEmpty = new TimeSeriesData('1m');
     ts.merge(tsEmpty);
     t.deepEqual(ts._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11,11,11,12,13,14], 'f');
     t.equal(ts.firstTime, tsB.firstTime, 'f');
-    t.equal(ts._lastTime, intervalMs * 11 + baseTimeOffset, 'f');
+    t.equal(ts.lastTime, intervalMs * 11 + baseTimeOffset, 'f');
 
     tsEmpty.merge(ts);
     t.deepEqual(tsEmpty._data, [5,6,7,7,8,9,7,7,7,7,1,2,3,4,10,11,11,11,12,13,14], 'g');
     t.equal(tsEmpty.firstTime, ts.firstTime, 'g');
-    t.equal(tsEmpty._lastTime, ts._lastTime, 'g');
+    t.equal(tsEmpty.lastTime, ts.lastTime, 'g');
     t.equal(tsEmpty.hasData, true, 'g');
 
     t.end();
