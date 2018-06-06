@@ -128,12 +128,12 @@ export class PriceIndicator extends SingleIndicator {
      * @param {number}  startTime   The earliest required data.
      */
     async prepHistory(startTime) {
+        log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);
         // Access pattern is to generally use all data following a sample
         // so load everything from startTime onwards.
         const endTime = this._data.hasData ? this._data.firstTime : this.binance.getTimestamp();
         if (endTime  < startTime) return;
         const history = await this.stream.getHistoryFromTo(startTime, endTime);
-        log.info(`PriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)}`);
         this._data.merge(history);
     }
 }
@@ -167,7 +167,6 @@ export class EMAIndicator extends SingleIndicator {
         await this.prepHistory(historyStart);
 
         // Calculate recent values so that EMAs stabilise.
-        log.debug(`EMAIndicator ${this.name}: Calculating historic values`);
         for (let time = historyStart; time < currentTime; time += this.intervalMs) {
             this._calculate(time);
         }
@@ -312,7 +311,6 @@ export class MultiEMAIndicator extends MultiIndicator {
         }
 
         // Calculate recent values so that EMAs stabilise.
-        log.debug('MultiEMA: Calculating historic values');
         for (
             let time = historyStart;
             time < currentTime;
@@ -468,6 +466,7 @@ export class DifferenceIndicator extends SingleIndicator {
     }
 
     static async createAndInit(binance, name, sourceA, sourceB) {
+        log.info(`Creating DifferenceIndicator ${name} (${sourceA.interval})`);
         const ind = new DifferenceIndicator(binance, name, sourceA, sourceB);
         await ind.init();
         return ind;
