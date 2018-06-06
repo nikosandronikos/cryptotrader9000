@@ -482,4 +482,28 @@ export class DifferenceIndicator extends SingleIndicator {
         this.notifyObservers('update', time, difference, valueA, valueB);
         return difference;
     }
+
+    /**
+     * Ensure this DifferenceIndicator instance has historical data from startTime
+     * to the current time.
+     * Call this method prior to retreiving data for any time value before
+     * the creation time of this instance.
+     * @param {number}  startTime   The earliest required data.
+     */
+    async prepHistory(startTime) {
+        log.info(`DifferenceIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
+        let endTime = Infinity;
+
+        const earliestData = this.earliestData();
+        if (earliestData !== null && startTime >= this.earliestData()) return;
+
+        for (const ema of this._emas) {
+            await ema.prepHistory(startTime);
+            endTime = Math.min(endTime, ema.latestData());
+        }
+
+        for (let time = startTime; time < endTime; time += this.intervalMs) {
+            this._calculate(time);
+        }
+    }
 }
