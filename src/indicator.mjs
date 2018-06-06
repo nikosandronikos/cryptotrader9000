@@ -132,7 +132,9 @@ export class PriceIndicator extends SingleIndicator {
         // Access pattern is to generally use all data following a sample
         // so load everything from startTime onwards.
         const endTime = this._data.hasData ? this._data.firstTime : this.binance.getTimestamp();
-        if (endTime  < startTime) return;
+        if (endTime  < startTime) {
+            return;
+        }
         const history = await this.stream.getHistoryFromTo(startTime, endTime);
         this._data.merge(history);
     }
@@ -204,7 +206,7 @@ export class EMAIndicator extends SingleIndicator {
         // Weighting for most recent close price.
         const multiplier = Big(2).div(this.nPeriods + 1);
 
-        const ema = current.times(multiplier).add(last.times(Big(1).sub(multiplier))).round(8);
+        const ema = current.times(multiplier).add(last.times(Big(1).minus(multiplier))).round(8);
         this._data.addData(time, ema);
         this.notifyObservers('update', time, ema, current);
         return ema;
