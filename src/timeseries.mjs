@@ -27,7 +27,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         /** Time interval in milliseconds. */
         this.intervalMs = chartIntervalToMs(interval);
         this.firstTime = Infinity;
-        this._lastTime = 0;
+        this.lastTime = 0;
         this._data = [];
         this.hasData = false;
     }
@@ -39,13 +39,13 @@ export class TimeSeriesData extends ObservableMixin(Object) {
      */
     _checkAndFillTrailingData(time) {
         if (time % this.intervalMs !== 0) time -= (time % this.intervalMs);
-        const gap = time - this._lastTime;
+        const gap = time - this.lastTime;
         if (gap < this.intervalMs) return;
         const nMissing = Math.ceil(gap / this.intervalMs);
         this._data = this._data.concat(
             new Array(nMissing).fill(this._data[this._data.length - 1])
         );
-        this._lastTime = time;
+        this.lastTime = time;
     }
 
     /**
@@ -78,13 +78,13 @@ export class TimeSeriesData extends ObservableMixin(Object) {
 
         if (this._data.length === 0) {
             this._data.push(data);
-            this._lastTime = this.firstTime = time;
+            this.lastTime = this.firstTime = time;
             this.notifyObservers('extended', data, time);
-        } else if (time > this._lastTime) {
+        } else if (time > this.lastTime) {
             // Comes after last sample
             this._checkAndFillTrailingData(time - this.intervalMs);
             this._data.push(data);
-            this._lastTime = time;
+            this.lastTime = time;
             this.notifyObservers('extended', data, time);
         } else if (time < this.firstTime) {
             // Comes before first sample
@@ -121,7 +121,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         // being executed and newer data being requested - the calculation
         // result would be 'undefined' (in the non deterministic sense) in this case.
         time -= (time % this.intervalMs);
-        if (time < this.firstTime || time > this._lastTime) return undefined;
+        if (time < this.firstTime || time > this.lastTime) return undefined;
 
         const index = (time - this.firstTime) / this.intervalMs;
         return this._data[index];
@@ -168,7 +168,7 @@ export class TimeSeriesData extends ObservableMixin(Object) {
         }
 
         this.firstTime = Math.min(this.firstTime, other.firstTime);
-        this._lastTime = Math.max(this._lastTime, other._lastTime);
+        this.lastTime = Math.max(this.lastTime, other.lastTime);
 
         this.hasData = this._data.length > 0;
     }

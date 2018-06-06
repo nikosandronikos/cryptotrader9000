@@ -52,6 +52,14 @@ export class SingleIndicator extends Indicator {
         }
         return this._data.getAt(time);
     }
+
+    earliestData() {
+        return this._data.hasData ? this._data.firstTime : null;
+    }
+
+    latestData() {
+        return this._data.hasData ? this._data.lastTime : null;
+    }
 }
 
 export class PriceIndicator extends SingleIndicator {
@@ -211,9 +219,17 @@ export class EMAIndicator extends SingleIndicator {
      * @param {number}  startTime   The earliest required data.
      */
     async prepHistory(startTime) {
-        await this.source.prepHistory(startTime);
         log.info(`EMAIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
-        for (let time = startTime; time < this._data.firstTime; time += this.intervalMs) {
+
+        const earliestData = this.earliestData();
+        if (earliestData !== null && !this.earlieststartTime >= this.earliestData()) {
+            log.debug(`skipping. startTime = ${startTime}. Is >= ${this.earliestData()}`);
+            return;
+        }
+
+        await this.source.prepHistory(startTime);
+        const latestData = this.source.latestData() || this.binance.getTimestamp();
+        for (let time = startTime; time < this.source.latestData(); time += this.intervalMs) {
             this._calculate(time);
         }
     }
@@ -237,6 +253,14 @@ export class MultiIndicator extends Indicator {
     // eslint-disable-next-line no-unused-vars
     getAll(time) {
         throw 'Implement in sub-class.';
+    }
+
+    earliestData() {
+        throw new Error('Implement in sub-class.');
+    }
+
+    latestData() {
+        throw new Error('Implement in sub-class.');
     }
 }
 
@@ -264,6 +288,7 @@ export class MultiEMAIndicator extends MultiIndicator {
         this.currentPrice = null;
         this.slow = Math.max(...lengths);
         this.fast = Math.min(...lengths);
+        this._latestData = 0;
     }
 
     /**
@@ -339,6 +364,7 @@ export class MultiEMAIndicator extends MultiIndicator {
             return;
         }
 
+        this._latestData = time;
         this.notifyObservers('update', time);
 
         const cross = findCross(
@@ -390,6 +416,14 @@ export class MultiEMAIndicator extends MultiIndicator {
             results.push(ema.getAt(time));
         }
         return results;
+    }
+
+    earliestData() {
+        return this.emas[0].earliestData();
+    }
+
+    latestData() {
+        return this._latestData;
     }
 }
 
