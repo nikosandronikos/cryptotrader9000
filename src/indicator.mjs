@@ -507,3 +507,122 @@ export class DifferenceIndicator extends SingleIndicator {
         }
     }
 }
+
+export class MACDIndicator extends MultiIndicator {
+    constructor(binance, name, source) {
+        super(binance, name, source.interval);
+        this._source = source;
+        this._emas = null;
+        this._macd = null;
+        this._signal = null;
+        this._lastOrder = 0;
+    }
+
+    async init() {
+        this._emas = [
+            await EMAIndicator.createAndInit(
+                this.binance,
+                'MACD EMA(12)',
+                this._source,
+                12
+            ),
+            await EMAIndicator.createAndInit(
+                this.binance,
+                'MACD EMA(26)',
+                this._source,
+                26
+            )
+        ];
+
+        // ema-------diff-----ema-----source
+        //             |                |
+        //             +--------ema-----+
+
+        this._macd = await DifferenceIndicator.createAndInit(
+            this.binance, 'MACD 12-26', this._emas[0], this._emas[1]
+        );
+
+        this._signal = await EMAIndicator.createAndInit(
+            this.binance, 'MACD signal', this._macd, 9
+        );
+
+        const currentTime = this.binance.getTimestamp();
+        const historyStart = currentTime - emaHistoryLength * this.intervalMs;
+        await this.prepHistory(historyStart);
+
+        // Signal is updated by the MACD, so we know we have complete data.
+        this._signal.addObserver('update', (time, data, difference, valueA, valueB) => this._calculate(time));
+    }
+
+    earliestData() {
+        return this._macd.earliestData();
+    }
+
+    latestData() {
+        return this._macd.latestData();
+    }
+
+    async prepHistory(startTime) {
+        log.info(`MACDIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
+        let endTime = Infinity;
+
+        if (startTime >= this.earliestData()) return;
+
+        for (const ema of this._emas) {
+            await ema.prepHistory(startTime);
+            endTime = Math.min(ema.latestData(), endTime);
+        }
+        await this._macd.prepHistory(startTime);
+        await this._signal.prepHistory(startTime);
+
+        endTime = Math.min(endTime, this._macd.latestData(),  this._signal.latestData());
+
+        for (let time = startTime; time < endTime; time += this.intervalMs) {
+            this._calculate(time);
+        }
+    }
+
+    static async createAndInit(binance, name, source) {
+        log.info(`Creating MACDIndicator ${name} (${source.interval})`);
+        const ind = new MACDIndicator(binance, name, source);
+        await ind.init();
+        return ind;
+    }
+
+    _getDataValues(time) {
+        const signal = this._signal.getAt(time);
+        const macd = this._macd.getAt(time);
+        if (signal === undefined || macd === undefined) {
+            log.debug(
+                `MACDIndicator ${this.name}. Missing data for ${timeStr(time)}`+
+                ` ${timeStr(this._data.firstData)}.`+
+                ` signal=${signal}, macd=${macd}.`
+            );
+            throw new Error(`${this.name} missing data for ${timeStr(time)} (${time}`);
+        }
+        return [signal, macd];
+    }
+
+    _calculate(time) {
+        // FIXME: Could maybe make a generalisation of MultiEMA and this indicator?
+        //        Have a look at this once the indicator is finished and all
+        //        requirements are known.
+        const [signal, macd] = this._getDataValues(time);
+        // if order < 0, then macd is above signal - bullish
+        // if order > 0, then macd is below signal - bearish
+        const order = signal.cmp(macd);
+        log.info(`MACD: ${timeStr(time)}. `+
+            `macd=${macd.toFixed(8)}. signal=${signal.toFixed(8)}. `+
+            `${order}`
+        );
+        if (order != 0 && order != this._lastOrder) {
+            this.notifyObservers('cross', time, macd, signal);
+            this._lastOrder = order;
+        }
+        this.notifyObservers('update', time, macd, signal);
+    }
+
+    getAll(time) {
+        return this._getDataValues(time);
+    }
+}

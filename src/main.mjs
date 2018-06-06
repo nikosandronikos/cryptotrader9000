@@ -1,6 +1,7 @@
 import {BinanceAccess} from './binance.mjs';
-import {PriceIndicator, MultiEMAIndicator} from './indicator.mjs';
+import {PriceIndicator, MultiEMAIndicator, MACDIndicator} from './indicator.mjs';
 import {log, LogLevelType} from './log';
+import {timeStr} from './utils';
 
 import Big from 'big.js';
 
@@ -17,9 +18,9 @@ import Big from 'big.js';
         process.env.BINANCEACCOUNT_KEY,
         process.env.BINANCEACCOUNT_SECRET
     );
-    const nulsbtc = binance.getCoinPair('NULS','BTC');
+    const nulsbtc = binance.getCoinPair('XMR','BTC');
     const nulsbtcPrice = await PriceIndicator.createAndInit(
-        binance, nulsbtc.symbol, nulsbtc, '1m', 20);
+        binance, nulsbtc.symbol, nulsbtc, '15m', 20);
     const multiEma = await MultiEMAIndicator.createAndInit(
         binance, `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);
 
@@ -62,4 +63,13 @@ import Big from 'big.js';
         //    crossed.findIndex((e) => e.nPeriods == 
     });
     multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});
+
+    const macd = await MACDIndicator.createAndInit(
+        binance, `${nulsbtc.symbol} MACD`, nulsbtcPrice
+    );
+
+    macd.addObserver('cross', (time, macd, signal) => {
+        log.notify(`MACD Cross. ${timeStr(time)}. macd=${macd.toFixed(8)}. signal=${signal.toFixed(8)}`);
+
+    });
 })();

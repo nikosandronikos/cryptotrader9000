@@ -1,5 +1,5 @@
 import {TimeSeriesData} from '../src/timeseries';
-import {DifferenceIndicator}  from '../src/indicator';
+import {DifferenceIndicator, MACDIndicator}  from '../src/indicator';
 import Big from 'big.js';
 import test from 'tape';
 
@@ -94,3 +94,51 @@ test('DifferenceIndicator: creation sanity test', (t) => {
     });
 });
 
+test('MACDIndicator: creation sanity test', (t) => {
+    let time = 0;
+    const interval = '1m';
+    const intervalMs = 1 * 60 * 1000;
+    const ts = new TimeSeriesData(interval);
+    const fakeBinance = {getTimestamp: () => time};
+    let prepHistoryRun = 0;
+    let addObserverRun = 0;
+    let sourceObservers = [];
+    let sourceValue = 0;
+    const source = {
+        interval: interval,
+        prepHistory: () => { prepHistoryRun++; },
+        addObserver: (evtName, fn) => {
+            addObserverRun++;
+            t.equal('update', evtName, 'addObserver event name correct');
+            sourceObservers.push(fn);
+        },
+        getAt: (time) => {
+            return Big(sourceValue++);
+        },
+        latestData: () => time
+    };
+    MACDIndicator.createAndInit(fakeBinance, 'MACDTest', source).then(ind => {
+        t.equal(ind.interval, interval, 'intervals match');
+        t.equal(ind.intervalMs, intervalMs, 'intervalMs match');
+        t.equal(prepHistoryRun, 2, 'prepHistoryRun == 2');
+        t.equal(addObserverRun, 2, 'addObserverRun == 2');
+
+        // Add data and cause all obervers of the source to do calculations.
+        for (let i = 0, time = 0; time < intervalMs * 10; time += intervalMs, i++) {
+            for (const observer of sourceObservers) observer(time, null, null);
+        }
+
+        // Check the final calculations
+        let lastMacd = Big(-1000000);
+        for (let i = 0, time = 0; time < intervalMs * 10; time += intervalMs, i++) {
+            // Not sure what the values should calculate to, but they should at
+            // least be increasing.
+            const [signal, macd] = ind.getAll(time);
+            t.equal(signal.cmp(ind._signal.getAt(time)), 0, 'signal from getAll matches internal EMA');
+            t.equal(macd.cmp(ind._macd.getAt(time)), 0, 'macd from getAll matches internal DiffIndicator');
+            t.equal(macd.gt(lastMacd), true, 'macd is greater than previous');
+            lastMacd = macd;
+        }
+        t.end();
+    });
+});
