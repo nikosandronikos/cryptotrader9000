@@ -477,7 +477,7 @@ export class DifferenceIndicator extends SingleIndicator {
     _calculate(time) {
         const valueA = this._emas[0].getAt(time);
         const valueB = this._emas[1].getAt(time);
-        const difference = valueA.sub(valueB);
+        const difference = valueA.minus(valueB);
         this._data.addData(time, difference);
         this.notifyObservers('update', time, difference, valueA, valueB);
         return difference;
