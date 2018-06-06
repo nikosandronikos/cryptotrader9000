@@ -3,6 +3,44 @@ import {EMAIndicator}  from '../src/indicator';
 import Big from 'big.js';
 import test from 'tape';
 
+test('EMAIndicator: prepHistory', (t) => {
+    const interval = '1m';
+    const intervalMs = 1 * 60 * 1000;
+    let prepHistoryRun = 0;
+    let sourceValue = 0;
+    const fakeIndicator = {
+        interval: interval,
+        prepHistory: () => { prepHistoryRun++; },
+        addObserver: (evtName, fn) => {
+            addObserverRun++;
+            t.equal('update', evtName, 'addObserver event name correct');
+            sourceObservers.push(fn);
+        },
+        getAt: (time) => {
+            console.log('time', time);
+            return Big(sourceValue++);
+        },
+        latestData: () => time
+    };
+    const time = 120000;
+    const fakeBinance = {
+        getTimestamp: () => time
+    }
+    const ts = new TimeSeriesData('1m');
+    const ema = new EMAIndicator(fakeBinance, `emaTest EMA({$n})`, fakeIndicator, 3);
+
+    t.equal(ema._data.hasData, false, 'EMAIndicator has no data');
+    const historyStart = 0;
+    ema.prepHistory(historyStart).then( () => {
+        t.equal(prepHistoryRun, 1, 'prepHistory was called');
+        t.equal(ema._data.hasData, true, 'EMAIndicator has data');
+        console.log(ema._data.firstData);
+        t.equal(ema.earliestData(), historyStart, 'earliestData() matches historyStart');
+        t.equal(ema.latestData(), time - intervalMs, 'latestData() matches time, minus one interval');
+        t.end();
+   });
+});
+
 function emaTest(t, prices, expected, n) {
     t.equal(prices.length, expected.length, 'a');
 
@@ -112,3 +150,4 @@ test('EMA(13) calculate', (t) => {
     ];
     emaTest(t, prices, expected, 13);
 });
+

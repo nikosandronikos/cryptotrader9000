@@ -3,6 +3,44 @@ import {DifferenceIndicator, MACDIndicator}  from '../src/indicator';
 import Big from 'big.js';
 import test from 'tape';
 
+test('DifferenceIndicator: prepHistory', (t) => {
+    const interval = '1m';
+    const intervalMs = 1 * 60 * 1000;
+    let prepHistoryRun = 0;
+    let sourceValue = 0;
+    const fakeIndicator = {
+        interval: interval,
+        prepHistory: () => { prepHistoryRun++; },
+        addObserver: (evtName, fn) => {
+            addObserverRun++;
+            t.equal('update', evtName, 'addObserver event name correct');
+            sourceObservers.push(fn);
+        },
+        getAt: (time) => {
+            console.log('time', time);
+            return Big(sourceValue++);
+        },
+        latestData: () => time
+    };
+    const time = 120000;
+    const fakeBinance = {
+        getTimestamp: () => time
+    }
+    const ts = new TimeSeriesData('1m');
+    const ind = new DifferenceIndicator(fakeBinance, 'DiffIndicator Test', fakeIndicator, fakeIndicator);
+
+    t.equal(ind._data.hasData, false, 'Indicator has no data');
+    const historyStart = 0;
+    ind.prepHistory(historyStart).then( () => {
+        t.equal(prepHistoryRun, 2, 'prepHistory was called');
+        t.equal(ind._data.hasData, true, 'Indicator has data');
+        console.log(ind._data.firstData);
+        t.equal(ind.earliestData(), historyStart, 'earliestData() matches historyStart');
+        t.equal(ind.latestData(), time - intervalMs, 'latestData() matches time, minus one interval');
+        t.end();
+   });
+});
+
 test('DifferenceIndicator: calculate', (t) => {
     let time = 0;
     const interval = '1m';
