@@ -7,7 +7,9 @@ import {log} from './log';
 
 Big.DP = 8;
 
-const emaHistoryLength = 20;
+export const IndicatorConfig = {
+    emaHistoryLength: 20
+};
 
 export class Indicator extends ObservableMixin(Object) {
     /**
@@ -165,7 +167,7 @@ export class EMAIndicator extends SingleIndicator {
      */
     async init() {
         const currentTime = this.binance.getTimestamp();
-        const historyStart = currentTime - emaHistoryLength * this.intervalMs;
+        const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
         await this.prepHistory(historyStart);
 
         // Calculate recent values so that EMAs stabilise.
@@ -299,7 +301,7 @@ export class MultiEMAIndicator extends MultiIndicator {
      */
     async init() {
         const currentTime = this.binance.getTimestamp();
-        const historyStart = currentTime - emaHistoryLength * this.intervalMs;
+        const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
 
         for (const length of this.lengths) {
             const ema = await EMAIndicator.createAndInit(
@@ -441,7 +443,7 @@ export class DifferenceIndicator extends SingleIndicator {
 
     async init() {
         const currentTime = this.binance.getTimestamp();
-        const historyStart = currentTime - emaHistoryLength * this.intervalMs;
+        const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
 
         for (const ema of this._emas) {
             await ema.prepHistory(historyStart);
@@ -547,7 +549,7 @@ export class MACDIndicator extends MultiIndicator {
         );
 
         const currentTime = this.binance.getTimestamp();
-        const historyStart = currentTime - emaHistoryLength * this.intervalMs;
+        const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
         await this.prepHistory(historyStart);
 
         // Signal is updated by the MACD, so we know we have complete data.
