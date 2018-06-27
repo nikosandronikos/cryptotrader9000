@@ -153,6 +153,12 @@ test('MACDIndicator: creation sanity test', (t) => {
         1.5513, 4.3819, 9.1100, 15.2909, 21.9670, 28.4502, 33.7110, 38.2539,
         42.0182, 45.0047, 47.1648
     ];
+    const expectedHistogram = [
+        0.0000, 0.1825, 0.2882, 0.3434, 0.3581, 0.1889, 0.2211, 0.1725, 0.3268,
+        -0.1262, -0.3760, -0.3288, -0.1221, -0.2460, -0.3554, -0.2337, 0.0016,
+        1.1541, 4.7560, 11.3226, 18.9122, 24.7238, 26.7043, 25.9326, 21.0432,
+        18.1719, 15.0569, 11.9460, 8.6406
+    ];
     let pricesIndex = 0;
     let time = 0;
     const interval = '1m';
@@ -184,7 +190,7 @@ test('MACDIndicator: creation sanity test', (t) => {
         t.equal(ind.interval, interval, 'intervals match');
         t.equal(ind.intervalMs, intervalMs, 'intervalMs match');
         // Once for each indicator. No history is prepared so no call is skipped.
-        t.equal(prepHistoryRun, 6, 'prepHistoryRun == 6');
+        t.equal(prepHistoryRun, 10, 'prepHistoryRun == 10');
         t.equal(addObserverRun, 2, 'addObserverRun == 2');
 
         // Add data and cause all obervers of the source to do calculations.
@@ -195,9 +201,10 @@ test('MACDIndicator: creation sanity test', (t) => {
         // Check the final calculations
         let expectedIndex = 0;
         for (let i = 0, time = 0; time < intervalMs * prices.length; time += intervalMs, i++) {
-            const [signal, macd] = ind.getAll(time);
+            const [signal, macd, histogram] = ind.getAll(time);
             t.equal(signal.cmp(ind._signal.getAt(time)), 0, 'signal from getAll matches internal EMA');
             t.equal(macd.cmp(ind._macd.getAt(time)), 0, 'macd from getAll matches internal DiffIndicator');
+            t.equal(histogram.cmp(ind._histogram.getAt(time)), 0, 'histogram from getAll matches internal Indicator');
             t.equal(
                 macd.minus(expectedMacd[expectedIndex]).lt(0.0001),
                 true, 'macd matches expected'
@@ -205,6 +212,10 @@ test('MACDIndicator: creation sanity test', (t) => {
             t.equal(
                 signal.minus(expectedSignal[expectedIndex]).lt(0.0001),
                 true, 'signal matches expected'
+            );
+            t.equal(
+                histogram.minus(expectedHistogram[expectedIndex]).lt(0.0001),
+                true, 'histogram matches expected'
             );
             expectedIndex++;
         }

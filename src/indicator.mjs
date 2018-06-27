@@ -517,6 +517,7 @@ export class MACDIndicator extends MultiIndicator {
         this._emas = null;
         this._macd = null;
         this._signal = null;
+        this._histogram = null;
         this._lastOrder = 0;
     }
 
@@ -548,12 +549,17 @@ export class MACDIndicator extends MultiIndicator {
             this.binance, 'MACD signal', this._macd, 9
         );
 
+        this._histogram = await DifferenceIndicator.createAndInit(
+            this.binance, 'MACD histogram', this._macd, this._signal
+        );
+
         const currentTime = this.binance.getTimestamp();
         const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
         await this.prepHistory(historyStart);
 
-        // Signal is updated by the MACD, so we know we have complete data.
-        this._signal.addObserver('update', (time, data, difference, valueA, valueB) => this._calculate(time));
+        // Histogram is updated by the MACD and the signal, so when we get
+        // an update from it, we know we have complete data for the period.
+        this._histogram.addObserver('update', (time, difference, valueA, valueB) => this._calculate(time));
     }
 
     earliestData() {
@@ -576,8 +582,14 @@ export class MACDIndicator extends MultiIndicator {
         }
         await this._macd.prepHistory(startTime);
         await this._signal.prepHistory(startTime);
+        await this._histogram.prepHistory(startTime);
 
-        endTime = Math.min(endTime, this._macd.latestData(),  this._signal.latestData());
+        endTime = Math.min(
+            endTime,
+            this._macd.latestData(),
+            this._signal.latestData(),
+            this._histogram.latestData()
+        );
 
         for (let time = startTime; time < endTime; time += this.intervalMs) {
             this._calculate(time);
@@ -594,34 +606,36 @@ export class MACDIndicator extends MultiIndicator {
     _getDataValues(time) {
         const signal = this._signal.getAt(time);
         const macd = this._macd.getAt(time);
-        if (signal === undefined || macd === undefined) {
+        const histogram = this._histogram.getAt(time);
+        if (signal === undefined || macd === undefined || histogram == undefined) {
             log.debug(
                 `MACDIndicator ${this.name}. Missing data for ${timeStr(time)}`+
                 ` ${timeStr(this._data.firstData)}.`+
-                ` signal=${signal}, macd=${macd}.`
+                ` signal=${signal}, macd=${macd}, histogram=${histogram}.`
             );
             throw new Error(`${this.name} missing data for ${timeStr(time)} (${time}`);
         }
-        return [signal, macd];
+        return [signal, macd, histogram];
     }
 
     _calculate(time) {
         // FIXME: Could maybe make a generalisation of MultiEMA and this indicator?
         //        Have a look at this once the indicator is finished and all
         //        requirements are known.
-        const [signal, macd] = this._getDataValues(time);
+        const [signal, macd, histogram] = this._getDataValues(time);
         // if order < 0, then macd is above signal - bullish
         // if order > 0, then macd is below signal - bearish
         const order = signal.cmp(macd);
         log.info(`MACD: ${timeStr(time)}. `+
             `macd=${macd.toFixed(8)}. signal=${signal.toFixed(8)}. `+
+            `histogram=${histogram.toFixed(8)}. `+
             `${order}`
         );
         if (order != 0 && order != this._lastOrder) {
-            this.notifyObservers('cross', time, macd, signal);
+            this.notifyObservers('cross', time, macd, signal, histogram);
             this._lastOrder = order;
         }
-        this.notifyObservers('update', time, macd, signal);
+        this.notifyObservers('update', time, macd, signal, histogram);
     }
 
     getAll(time) {
