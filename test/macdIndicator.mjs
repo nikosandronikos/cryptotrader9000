@@ -1,5 +1,5 @@
 import {TimeSeriesData} from '../src/timeseries';
-import {DifferenceIndicator, MACDIndicator}  from '../src/indicator';
+import {DifferenceIndicator, MACDIndicator, IndicatorConfig}  from '../src/indicator';
 import Big from 'big.js';
 import test from 'tape';
 
@@ -133,6 +133,27 @@ test('DifferenceIndicator: creation sanity test', (t) => {
 });
 
 test('MACDIndicator: creation sanity test', (t) => {
+    IndicatorConfig.emaHistoryLength = 0;
+    const prices = [
+        8119.1400, 8122.0000, 8122.0200, 8122.1000, 8122.1000, 8119.6400,
+        8122.0100, 8121.1700, 8124.2700, 8116.0000, 8116.5000, 8119.4400,
+        8121.9900, 8117.9600, 8117.2900, 8120.0000, 8122.3100, 8138.0700,
+        8184.1900, 8255.8400, 8320.2000, 8353.5600, 8350.0100, 8343.5400,
+        8299.8700, 8325.0000, 8324.7800, 8325.0000, 8320.0000
+    ];
+    const expectedMacd = [
+        0.0000, 0.2281, 0.4059, 0.5469, 0.6512, 0.5292, 0.6166, 0.6111, 0.8471,
+        0.3627, 0.0189, -0.0162, 0.1599, -0.0254, -0.2237, -0.1604, 0.0754,
+        1.5164, 6.3072, 15.7045, 28.0222, 40.0147, 48.6713, 54.3828, 54.7542,
+        56.4259, 57.0750, 56.9507, 55.8055
+    ];
+    const expectedSignal = [
+        0.0000, 0.0456, 0.1177, 0.2035, 0.2931, 0.3403, 0.3955, 0.4387, 0.5204,
+        0.4888, 0.3948, 0.3126, 0.2821, 0.2206, 0.1317, 0.0733, 0.0737, 0.3623,
+        1.5513, 4.3819, 9.1100, 15.2909, 21.9670, 28.4502, 33.7110, 38.2539,
+        42.0182, 45.0047, 47.1648
+    ];
+    let pricesIndex = 0;
     let time = 0;
     const interval = '1m';
     const intervalMs = 1 * 60 * 1000;
@@ -142,6 +163,7 @@ test('MACDIndicator: creation sanity test', (t) => {
     let addObserverRun = 0;
     let sourceObservers = [];
     let sourceValue = 0;
+    let sourceLastTime = 0;
     const source = {
         interval: interval,
         prepHistory: () => { prepHistoryRun++; },
@@ -151,31 +173,40 @@ test('MACDIndicator: creation sanity test', (t) => {
             sourceObservers.push(fn);
         },
         getAt: (time) => {
-            return Big(sourceValue++);
+            console.log(time);
+            if (time > sourceLastTime) pricesIndex++;
+            sourceLastTime = time;
+            return Big(prices[pricesIndex]);
         },
         latestData: () => time
     };
     MACDIndicator.createAndInit(fakeBinance, 'MACDTest', source).then(ind => {
         t.equal(ind.interval, interval, 'intervals match');
         t.equal(ind.intervalMs, intervalMs, 'intervalMs match');
-        t.equal(prepHistoryRun, 2, 'prepHistoryRun == 2');
+        // Once for each indicator. No history is prepared so no call is skipped.
+        t.equal(prepHistoryRun, 6, 'prepHistoryRun == 6');
         t.equal(addObserverRun, 2, 'addObserverRun == 2');
 
         // Add data and cause all obervers of the source to do calculations.
-        for (let i = 0, time = 0; time < intervalMs * 10; time += intervalMs, i++) {
+        for (let i = 0, time = 0; time < intervalMs * prices.length; time += intervalMs, i++) {
             for (const observer of sourceObservers) observer(time, null, null);
         }
 
         // Check the final calculations
-        let lastMacd = Big(-1000000);
-        for (let i = 0, time = 0; time < intervalMs * 10; time += intervalMs, i++) {
-            // Not sure what the values should calculate to, but they should at
-            // least be increasing.
+        let expectedIndex = 0;
+        for (let i = 0, time = 0; time < intervalMs * prices.length; time += intervalMs, i++) {
             const [signal, macd] = ind.getAll(time);
             t.equal(signal.cmp(ind._signal.getAt(time)), 0, 'signal from getAll matches internal EMA');
             t.equal(macd.cmp(ind._macd.getAt(time)), 0, 'macd from getAll matches internal DiffIndicator');
-            t.equal(macd.gt(lastMacd), true, 'macd is greater than previous');
-            lastMacd = macd;
+            t.equal(
+                macd.minus(expectedMacd[expectedIndex]).lt(0.0001),
+                true, 'macd matches expected'
+            );
+            t.equal(
+                signal.minus(expectedSignal[expectedIndex]).lt(0.0001),
+                true, 'signal matches expected'
+            );
+            expectedIndex++;
         }
         t.end();
     });
