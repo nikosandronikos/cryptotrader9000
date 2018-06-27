@@ -8,7 +8,7 @@ import {log} from './log';
 Big.DP = 8;
 
 export const IndicatorConfig = {
-    emaHistoryLength: 20
+    emaHistoryLength: 180
 };
 
 export class Indicator extends ObservableMixin(Object) {
