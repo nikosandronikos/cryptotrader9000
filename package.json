@@ -5,16 +5,16 @@
   "main": "src/main.mjs",
   "dependencies": {
     "axios": "^0.18.0",
-    "big.js": "^5.0.3",
+    "big.js": "^5.1.2",
     "dotenv": "^5.0.1",
-    "ws": "^5.1.1"
+    "ws": "^5.2.1"
   },
   "devDependencies": {
     "esdoc": "^1.1.0",
     "esdoc-standard-plugin": "^1.0.0",
     "eslint": "^4.19.1",
     "faucet": "0.0.1",
-    "tape": "^4.9.0"
+    "tape": "^4.9.1"
   },
   "scripts": {
     "start": "node --experimental-modules -r dotenv/config src/main.mjs",
