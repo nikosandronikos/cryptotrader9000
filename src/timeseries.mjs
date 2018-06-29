@@ -172,4 +172,32 @@ export class TimeSeriesData extends ObservableMixin(Object) {
 
         this.hasData = this._data.length > 0;
     }
+
+    /**
+     * Get data for a number of periods as an array.
+     * @param {number}  time        Time to start counting periods from -
+     *                              always included in the returned array.
+     * @param {number}  n           The number of periods to return. If n
+     *                              is positive then the periods after time
+     *                              are returned, if n is negative, the periods
+     *                              prior to time are returned.
+     * @return {Array|null}         An array containing the requested data,
+     *                              or null if the requested period falls
+     *                              outside the bounds of the current data
+     *                              held by the TimeSeriesData instance.
+     */
+    nPeriodsAsArray(time, n) {
+        time -= (time % this.intervalMs);
+        if (time < this.firstTime || time > this.lastTime) return null;
+
+        const index = (time - this.firstTime) / this.intervalMs;
+        const endIndex = index + n;
+        console.log(index, endIndex);
+        if (n < 0) {
+            if (endIndex < -1) return null;
+            return this._data.slice(endIndex + 1, index + 1);
+        }
+        if (endIndex > this._data.length) return null;
+        return this._data.slice(index, endIndex);
+    }
 }

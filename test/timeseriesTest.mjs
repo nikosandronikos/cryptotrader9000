@@ -235,3 +235,43 @@ test('TimeSeriesData: merge', (t) => {
 
     t.end();
 });
+
+test('TimeSeriesData: nPeriodsAsArray', (t) => {
+    const ts = new TimeSeriesData('1m');
+    const intervalMs = 1 * 60 * 1000;
+
+    ts.addData(intervalMs * 1, 1);
+    ts.addData(intervalMs * 2, 2);
+    ts.addData(intervalMs * 3, 3);
+    ts.addData(intervalMs * 4, 4);
+
+    const a = ts.nPeriodsAsArray(intervalMs * 2, 2);
+    t.equal(a.length, 2, 'Array is correct length');
+    t.deepEqual(a, [2, 3], 'Array has correct values');
+
+    const b = ts.nPeriodsAsArray(intervalMs * 2, -2);
+    t.equal(b.length, 2, 'Reverse array is correct length');
+    t.deepEqual(b, [1, 2], 'Reverse array has correct values');
+
+    const c = ts.nPeriodsAsArray(intervalMs * 1, 5);
+    t.equal(c, null, 'Request past end returns null');
+
+    const d = ts.nPeriodsAsArray(intervalMs * 1 - 1, 2);
+    t.equal(d, null, 'Request of time prior to start returns null');
+
+    const e = ts.nPeriodsAsArray(intervalMs * 5, 1);
+    t.equal(e, null, 'Request of time after end returns null');
+
+    const f = ts.nPeriodsAsArray(intervalMs, 4);
+    t.equal(f.length, 4, 'Request for full array is correct length');
+    t.deepEqual(f, [1,2,3,4], 'Request for full array has correct values');
+
+    const g = ts.nPeriodsAsArray(intervalMs * 4, -4);
+    t.equal(g.length, 4, 'Request for full reverse array is correct length');
+    t.deepEqual(g, [1,2,3,4], 'Request for full reverse array has correct values');
+
+    const h = ts.nPeriodsAsArray(intervalMs * 4, -5);
+    t.equal(h, null, 'Reverse request prior to start returns null');
+
+    t.end();
+});
