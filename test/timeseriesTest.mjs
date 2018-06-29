@@ -273,5 +273,11 @@ test('TimeSeriesData: nPeriodsAsArray', (t) => {
     const h = ts.nPeriodsAsArray(intervalMs * 4, -5);
     t.equal(h, null, 'Reverse request prior to start returns null');
 
+    const i = ts.nPeriodsAsArray(intervalMs * 2, 0);
+    t.deepEqual(i, [], 'Request for no data returns empty array');
+
+    const j = ts.nPeriodsAsArray(intervalMs * 2, -0);
+    t.deepEqual(j, [], 'Reverse request for no data returns empty array');
+
     t.end();
 });
