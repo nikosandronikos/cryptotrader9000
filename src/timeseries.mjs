@@ -192,7 +192,6 @@ export class TimeSeriesData extends ObservableMixin(Object) {
 
         const index = (time - this.firstTime) / this.intervalMs;
         const endIndex = index + n;
-        console.log(index, endIndex);
         if (n < 0) {
             if (endIndex < -1) return null;
             return this._data.slice(endIndex + 1, index + 1);
