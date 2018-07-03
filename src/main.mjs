@@ -22,7 +22,7 @@ import Big from 'big.js';
     const nulsbtcPrice = await PriceIndicator.createAndInit(
         binance, nulsbtc.symbol, nulsbtc, '15m', 20);
     const multiEma = await MultiEMAIndicator.createAndInit(
-        binance, `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);
+        `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);
 
     log.notify(`Bot online. Tracking ${nulsbtc.symbol} ${nulsbtcPrice.interval}.`);
 
@@ -65,7 +65,7 @@ import Big from 'big.js';
     multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});
 
     const macd = await MACDIndicator.createAndInit(
-        binance, `${nulsbtc.symbol} MACD`, nulsbtcPrice
+        `${nulsbtc.symbol} MACD`, nulsbtcPrice
     );
 
     macd.addObserver('cross', (time, macd, signal) => {

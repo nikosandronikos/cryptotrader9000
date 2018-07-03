@@ -84,6 +84,7 @@ test('DifferenceIndicator: creation sanity test', (t) => {
     let addObserverRun = 0;
     let aObserver = null, bObserver = null;
     const a = {
+        binance: fakeBinance,
         interval: interval,
         prepHistory: () => {prepHistoryRun++},
         addObserver: (evtName, fn) => {
@@ -96,6 +97,7 @@ test('DifferenceIndicator: creation sanity test', (t) => {
         }
     };
     const b = {
+        binance: fakeBinance,
         interval: interval,
         prepHistory: () => {prepHistoryRun++},
         addObserver: (evtName, fn) => {
@@ -107,7 +109,7 @@ test('DifferenceIndicator: creation sanity test', (t) => {
             return Big(time);
         }
     };
-    DifferenceIndicator.createAndInit(fakeBinance, 'diffIndTest', a, b).then(ind => {
+    DifferenceIndicator.createAndInit('diffIndTest', a, b).then(ind => {
         t.equal(ind.interval, interval, 'intervals match');
         t.equal(ind.intervalMs, intervalMs, 'intervalMs match');
         t.equal(prepHistoryRun, 2, 'prepHistoryRun == 2');
@@ -171,6 +173,7 @@ test('MACDIndicator: creation sanity test', (t) => {
     let sourceValue = 0;
     let sourceLastTime = 0;
     const source = {
+        binance: fakeBinance,
         interval: interval,
         prepHistory: () => { prepHistoryRun++; },
         addObserver: (evtName, fn) => {
@@ -186,7 +189,7 @@ test('MACDIndicator: creation sanity test', (t) => {
         },
         latestData: () => time
     };
-    MACDIndicator.createAndInit(fakeBinance, 'MACDTest', source).then(ind => {
+    MACDIndicator.createAndInit('MACDTest', source).then(ind => {
         t.equal(ind.interval, interval, 'intervals match');
         t.equal(ind.intervalMs, intervalMs, 'intervalMs match');
         // Once for each indicator. No history is prepared so no call is skipped.

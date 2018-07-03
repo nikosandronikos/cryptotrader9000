@@ -181,7 +181,6 @@ export class EMAIndicator extends SingleIndicator {
 
     /**
      * A helper method to create and initialise the indicator instance.
-     * @param {BinanceAccess}   binance     A BinanceAccess object.
      * @param {string}          name        A name for the indicator.
      * @param {Indicator}       source      The data source that an EMA
      *                                      is calculated for.
@@ -189,9 +188,9 @@ export class EMAIndicator extends SingleIndicator {
      *                                      calculate the EMA.
      * @returns {EMAIndicator}  An instance that is ready to use.
      */
-    static async createAndInit(binance, name, source, nPeriods) {
+    static async createAndInit(name, source, nPeriods) {
         log.info(`Creating EMAIndicator for ${name} (${nPeriods}) ${source.interval}`);
-        const ema = new EMAIndicator(binance, name, source, nPeriods);
+        const ema = new EMAIndicator(source.binance, name, source, nPeriods);
         await ema.init();
         return ema;
     }
@@ -305,7 +304,6 @@ export class MultiEMAIndicator extends MultiIndicator {
 
         for (const length of this.lengths) {
             const ema = await EMAIndicator.createAndInit(
-                this.binance,
                 `${this.name} EMA(${length})`,
                 this._emaSource,
                 length,
@@ -388,7 +386,6 @@ export class MultiEMAIndicator extends MultiIndicator {
 
     /**
      * A helper method to create and initialise a MultiEMAIndcator instance.
-     * @param {BinanceAccess}   binance     A BinanceAccess object.
      * @param {string}          name        A name for the indicator.
      * @param {Indicator}       emaSource   The source of data for calculating
      *                                      each EMA in the set.
@@ -399,9 +396,9 @@ export class MultiEMAIndicator extends MultiIndicator {
      *                                      are included in the set.
      * @returns {MultiEMAIndicator} An instance that is ready to use.
      */
-    static async createAndInit(binance, name, emaSource, lengths) {
+    static async createAndInit(name, emaSource, lengths) {
         log.info(`Creating MultiEMAIndicator ${name} (${emaSource.interval}) ${lengths}`);
-        const ind = new MultiEMAIndicator(binance, name, emaSource, lengths);
+        const ind = new MultiEMAIndicator(emaSource.binance, name, emaSource, lengths);
         await ind.init();
         return ind;
     }
@@ -469,9 +466,9 @@ export class DifferenceIndicator extends SingleIndicator {
         }
     }
 
-    static async createAndInit(binance, name, sourceA, sourceB) {
+    static async createAndInit(name, sourceA, sourceB) {
         log.info(`Creating DifferenceIndicator ${name} (${sourceA.interval})`);
-        const ind = new DifferenceIndicator(binance, name, sourceA, sourceB);
+        const ind = new DifferenceIndicator(sourceA.binance, name, sourceA, sourceB);
         await ind.init();
         return ind;
     }
@@ -524,13 +521,11 @@ export class MACDIndicator extends MultiIndicator {
     async init() {
         this._emas = [
             await EMAIndicator.createAndInit(
-                this.binance,
                 'MACD EMA(12)',
                 this._source,
                 12
             ),
             await EMAIndicator.createAndInit(
-                this.binance,
                 'MACD EMA(26)',
                 this._source,
                 26
@@ -542,15 +537,15 @@ export class MACDIndicator extends MultiIndicator {
         //             +--------ema-----+
 
         this._macd = await DifferenceIndicator.createAndInit(
-            this.binance, 'MACD 12-26', this._emas[0], this._emas[1]
+            'MACD 12-26', this._emas[0], this._emas[1]
         );
 
         this._signal = await EMAIndicator.createAndInit(
-            this.binance, 'MACD signal', this._macd, 9
+            'MACD signal', this._macd, 9
         );
 
         this._histogram = await DifferenceIndicator.createAndInit(
-            this.binance, 'MACD histogram', this._macd, this._signal
+            'MACD histogram', this._macd, this._signal
         );
 
         const currentTime = this.binance.getTimestamp();
@@ -596,9 +591,9 @@ export class MACDIndicator extends MultiIndicator {
         }
     }
 
-    static async createAndInit(binance, name, source) {
+    static async createAndInit(name, source) {
         log.info(`Creating MACDIndicator ${name} (${source.interval})`);
-        const ind = new MACDIndicator(binance, name, source);
+        const ind = new MACDIndicator(source.binance, name, source);
         await ind.init();
         return ind;
     }
