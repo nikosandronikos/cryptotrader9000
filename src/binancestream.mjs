@@ -200,17 +200,31 @@ export class BinanceStreamKlines extends BinanceStream {
     async getHistoryFromTo(startTime, endTime) {
         const history = new TimeSeriesData(this.interval);
         const intervalMs = chartIntervalToMs(this.interval);
-        const klines = await this.binance.apiCommand(
-            BinanceCommands.klines,
-            {
-                symbol:     this.symbol,
-                interval:   this.interval,
-                limit:      Math.ceil((endTime - startTime) / intervalMs),
-                // Ensure we get the kline that startTime falls within
-                startTime:  startTime - (startTime % chartIntervalToMs(this.interval)),
-                endTime:    endTime
-            }
-        );
+        // Ensure we get the kline that startTime falls within
+        let getTime = startTime - (startTime % intervalMs);
+        let nPeriods = Math.ceil((endTime - getTime) / intervalMs) + 1;
+        const klines = [];
+        // Can only get 500 values at a time.
+        // Sometimes Binance is missing data, so we aren't always guaranteed
+        // to get the exact number of results we expect, so don't assume a
+        // request for 500 values returns 500 values.
+        do {
+            const data = await this.binance.apiCommand(
+                BinanceCommands.klines,
+                {
+                    symbol:     this.symbol,
+                    interval:   this.interval,
+                    limit:      Math.min(500, nPeriods),
+                    startTime:  getTime,
+                    endTime:    endTime
+                }
+            );
+            nPeriods -= data.length;
+            // Get the time for the last kline returned and add one interval
+            getTime = data[data.length-1][0] + intervalMs;
+            klines.push(...data);
+        } while(getTime < endTime);
+
         let lastTime = 0;
         for (const kline of klines) {
             if (kline[0] < lastTime) throw 'Klines not oldest to newest.';
@@ -224,6 +238,7 @@ export class BinanceStreamKlines extends BinanceStream {
     }
 
     async getHistory(length) {
+        if (length > 500) throw new Error('getHistory: max length is 500');
         const history = new TimeSeriesData(this.interval);
         const klines = await this.binance.apiCommand(
             BinanceCommands.klines,
