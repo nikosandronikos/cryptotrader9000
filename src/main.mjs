@@ -1,5 +1,6 @@
 import {BinanceAccess} from './binance.mjs';
 import {PriceIndicator, MultiEMAIndicator, MACDIndicator} from './indicator.mjs';
+import {BackTestPriceIndicator} from './backtest';
 import {log, LogLevelType} from './log';
 import {timeStr} from './utils';
 
@@ -18,13 +19,24 @@ import Big from 'big.js';
         process.env.BINANCEACCOUNT_KEY,
         process.env.BINANCEACCOUNT_SECRET
     );
-    const nulsbtc = binance.getCoinPair('XMR','BTC');
-    const nulsbtcPrice = await PriceIndicator.createAndInit(
-        binance, nulsbtc.symbol, nulsbtc, '15m', 20);
-    const multiEma = await MultiEMAIndicator.createAndInit(
-        `${nulsbtc.symbol} MultiEMA`, nulsbtcPrice, [21, 13, 8]);
 
-    log.notify(`Bot online. Tracking ${nulsbtc.symbol} ${nulsbtcPrice.interval}.`);
+    const pair = binance.getCoinPair('XMR', 'BTC');
+    const price = await BackTestPriceIndicator.createAndInit(
+        binance,
+        Date.parse('17 June 2018 00:00:00 GMT+10'),
+        Date.parse('30 June 2018 00:00:00 GMT+10'),
+        `BackTestPrice(${pair.symbol})`,
+        pair,
+        '15m'
+    );
+
+    //const nulsbtc = binance.getCoinPair('XMR','BTC');
+    //const price = await PriceIndicator.createAndInit(
+    //    binance, nulsbtc.symbol, nulsbtc, '15m', 20);
+    const multiEma = await MultiEMAIndicator.createAndInit(
+        `${price.coinPair.symbol} MultiEMA`, price, [21, 13, 8]);
+
+    log.notify(`Bot online. Tracking ${price.coinPair.symbol} ${price.interval}.`);
 
     let buyAt = null;
     let cumulative = new Big(0);
@@ -65,11 +77,14 @@ import Big from 'big.js';
     multiEma.addObserver('update', function() {log.debug('Got MultiEMA update');});
 
     const macd = await MACDIndicator.createAndInit(
-        `${nulsbtc.symbol} MACD`, nulsbtcPrice
+        `${price.coinPair.symbol} MACD`, price
     );
 
     macd.addObserver('cross', (time, macd, signal) => {
         log.notify(`MACD Cross. ${timeStr(time)}. macd=${macd.toFixed(8)}. signal=${signal.toFixed(8)}`);
 
     });
+
+    price.startBackTest();
+    process.exit(0);
 })();
