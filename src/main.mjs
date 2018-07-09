@@ -1,14 +1,25 @@
 import {BinanceAccess} from './binance.mjs';
 import {PriceIndicator, MultiEMAIndicator, MACDIndicator} from './indicator.mjs';
-import {BackTestPriceIndicator} from './backtest';
+import {BackTestBinance, BackTestPriceIndicator} from './backtest';
 import {log, LogLevelType} from './log';
 import {timeStr} from './utils';
 
 import Big from 'big.js';
 
 (async function main() {
+    const backtest = true;
+
     log.info('Initialising exchange access');
-    const binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);
+    let binance = null;
+    if (backtest) {
+        binance = new BackTestBinance(
+            Date.parse('17 June 2018 00:00:00 GMT+10'),
+            Date.parse('30 June 2018 00:00:00 GMT+10'),
+            process.env.NET_REQUEST_TIMEOUT
+        );
+    } else {
+        binance = new BinanceAccess(process.env.NET_REQUEST_TIMEOUT);
+    }
     await binance.init();
     log.info('  Binance access initialised.');
 
@@ -23,8 +34,6 @@ import Big from 'big.js';
     const pair = binance.getCoinPair('XMR', 'BTC');
     const price = await BackTestPriceIndicator.createAndInit(
         binance,
-        Date.parse('17 June 2018 00:00:00 GMT+10'),
-        Date.parse('30 June 2018 00:00:00 GMT+10'),
         `BackTestPrice(${pair.symbol})`,
         pair,
         '15m'
@@ -85,6 +94,8 @@ import Big from 'big.js';
 
     });
 
-    price.startBackTest();
-    process.exit(0);
+    if (backtest) {
+        binance.startBackTest();
+        process.exit(0);
+    }
 })();

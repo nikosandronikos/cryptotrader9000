@@ -1,25 +1,63 @@
+import {ObservableMixin} from './observable';
+import {BinanceAccess} from './binance';
 import {IndicatorConfig, PriceIndicator} from './indicator.mjs';
 import {BinanceStreamKlines} from './binancestream.mjs';
 import {timeStr} from './utils';
 import {log} from './log';
 
 /**
- * Modify a BinanceAccess instance to support back testing.
- * The modified instance doesn't use the system clock for time.
- * Instead, the time is set by the user with the currentTime property - usually
- * this will be done in the BackTestPriceIndicator as it feeds data to other
- * indicators.
+ * Extends BinanceAccess to provide support for back testing, including
+ * externally controlling the wall clock.
  */
-function createBackTestBinance(baseBinance, startTime) {
-    log.info('Amending BinanceAccess instance for back testing.');
+export class BackTestBinance extends ObservableMixin(BinanceAccess) {
 
-    let backTestBinance = baseBinance;
-    // Provide a mechanism for overriding the wall clock as other Indicators
-    // rely on this and it must match the data fed by the BackTestPriceIndicator.
-    backTestBinance.currentTime = startTime;
-    backTestBinance.getTimestamp = function() {return this.currentTime;};
+    /**
+     * Create an instance for back testing.
+     * @param {number}  startTime   The time to run back testing from
+     * @param {number}  endTime     The time to run back testing to
+     * @param {number} [timeout]   See {@link BinanceAccess}
+     */
+    constructor(startTime, endTime, timeout=undefined) {
+        super(timeout);
+        this.startTime = startTime;
+        this.endTime = endTime;
+        // When initialising Binance API, the correct(ish) time must be set
+        // or the Binance API will complain.
+        this.currentTime = startTime;
+    }
 
-    return backTestBinance;
+    /**
+     * See {@link BinanceAccess}
+     */
+    async loadAccount(name, key, secret) {
+        // To load the account, the time must match the server time.
+        this.currentTime = Date.now();
+        await super.loadAccount(name, key, secret);
+        this.currentTime = this.startTime;
+    }
+
+    /**
+     * Get the time considered current by this instance. During back testing,
+     * this time will be updated in a monotonic fashion. If back testing is
+     * not running, it will be fixed at the startTime provided to the
+     * constructor of this class.
+     */
+    getTimestamp() {
+        return this.currentTime;
+    }
+
+    /**
+     * Generate events to perform back testing - Indicators observing this
+     * Indicator will receive these events.
+     * Events will be generated as rapidly as possible.
+     */
+    startBackTest() {
+        // Fire off one tic event every second.
+        for (let time = this.startTime; time <= this.endTime; time += 1000) {
+            this.currentTime = time;
+            this.notifyObservers('tic', time);
+        }
+    }
 }
 
 /**
@@ -33,11 +71,7 @@ export class BackTestPriceIndicator extends PriceIndicator {
      * Create a BackTestPriceIndicator instance. init must be called before use.
      * Typically, the helper function {@link createAndInit} should be used
      * to create instances.
-     * @param {BinanceAccess}   binance     A BinanceAccess object.
-     * @param {number}          startTime   A timestamp representing when
-     *                                      back testing should be performed from.
-     * @param {number}          endTime     A timestamp representing when
-     *                                      back testing should be performed to.
+     * @param {BackTestBinance} binance     A BackTestBinance instance.
      * @param {string}          name        A name for the indicator.
      * @param {CoinPair}        coinPair    A pair of coins - the price value
      *                                      of the indicator is the quote price
@@ -45,10 +79,8 @@ export class BackTestPriceIndicator extends PriceIndicator {
      * @param {string}          interval    The interval for the indicator
      *                                      in string form (see {@link chartIntervalToMs}.
      */
-    constructor(binance, startTime, endTime, name, coinPair, interval) {
+    constructor(binance, name, coinPair, interval) {
         super(binance, name, coinPair, interval);
-        this.startTime = startTime;
-        this.endTime = endTime;
     }
 
     /**
@@ -69,24 +101,22 @@ export class BackTestPriceIndicator extends PriceIndicator {
         // Don't bother actually responding to new data at all, we only need
         // the historic data retrieved here.
         const historyStart =
-            this.startTime - (IndicatorConfig.emaHistoryLength + 1) * this.intervalMs;
-        this._data = await this.stream.getHistoryFromTo(historyStart, this.endTime);
+            this.binance.startTime - (IndicatorConfig.emaHistoryLength + 1) * this.intervalMs;
+        this._data = await this.stream.getHistoryFromTo(historyStart, this.binance.endTime);
         log.info(
             'BackTestPriceIndicator got data for: '+
             `${this.coinPair.symbol} ${this.interval} from ${timeStr(historyStart)}`
         );
+
+        this.binance.addObserver('tic', (time) => {
+            const data = this.getAt(time);
+            this.notifyObservers('update', time, data);
+        });
     }
 
     /**
      * A helper method to create and initialise a BackTestPriceIndcator instance.
-     * @param {BinanceAccess}   baseBinance A BinanceAccess instance.
-     *                                      This instance will be modified for
-     *                                      back testing and must not be used
-     *                                      to create any other indicators.
-     * @param {number}          startTime   A timestamp representing when
-     *                                      back testing should be performed from.
-     * @param {number}          endTime     A timestamp representing when
-     *                                      back testing should be performed to.
+     * @param {BackTestBinance} binance     A BackTestBinance instance.
      * @param {string}          name        A name for the indicator.
      * @param {CoinPair}        coinPair    A pair of coins - the price value
      *                                      of the indicator is the quote price
@@ -95,12 +125,8 @@ export class BackTestPriceIndicator extends PriceIndicator {
      *                                      in string form (see {@link chartIntervalToMs}.
      * @returns {PriceIndicator} An instance that is ready to use.
      */
-    static async createAndInit(baseBinance, startTime, endTime, name, coinPair, interval) {
-        const binance = createBackTestBinance(baseBinance, startTime);
-        log.info(`Creating BackTestPriceIndicator for ${name} ${interval}`);
-        const ind = new BackTestPriceIndicator(
-            binance, startTime, endTime, name, coinPair, interval
-        );
+    static async createAndInit(binance, name, coinPair, interval) {
+        const ind = new BackTestPriceIndicator(binance, name, coinPair, interval);
         await ind.init();
         return ind;
     }
@@ -112,19 +138,6 @@ export class BackTestPriceIndicator extends PriceIndicator {
     async prepHistory(startTime) {
         // Do nothing, we should already have all required history.
         log.info(`BackTestPriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)} - skipping`);
-    }
-
-    /**
-     * Generate events to perform back testing - Indicators observing this
-     * Indicator will receive these events.
-     * Events will be generated as rapidly as possible.
-     */
-    startBackTest() {
-        for (let time = this.startTime; time <= this.endTime; time += this.intervalMs) {
-            this.binance.currentTime = time;
-            const data = this.getAt(time);
-            this.notifyObservers('update', time, data);
-        }
     }
 }
 
