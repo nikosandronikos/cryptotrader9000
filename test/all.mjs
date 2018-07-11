@@ -1,3 +1,4 @@
+import './calc';
 import './timeseriesTest';
 import './intervalStrTest';
 import './crossTest';
