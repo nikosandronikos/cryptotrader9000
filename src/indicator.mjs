@@ -2,7 +2,8 @@ import Big from 'big.js';
 import {ObservableMixin} from './observable';
 import {BinanceStreamKlines} from './binancestream.mjs';
 import {TimeSeriesData} from './timeseries';
-import {findCross, chartIntervalToMs, timeStr} from './utils';
+import {findCross} from './utils';
+import {chartIntervalToMs, timeStr} from './utils';
 import {log} from './log';
 
 Big.DP = 8;

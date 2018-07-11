@@ -1,4 +1,4 @@
-import {findCross}  from '../src/utils';
+import {findCross}  from '../src/calc';
 import test from 'tape';
 
 
