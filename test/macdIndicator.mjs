@@ -130,6 +130,9 @@ test('DifferenceIndicator: creation sanity test', (t) => {
 });
 
 test('MACDIndicator: creation sanity test', (t) => {
+    // Make sure we reset the original value after the test or other tests
+    // will be affected.
+    const origHistoryLength = IndicatorConfig.emaHistoryLength;
     IndicatorConfig.emaHistoryLength = 0;
     const prices = [
         8119.1400, 8122.0000, 8122.0200, 8122.1000, 8122.1000, 8119.6400,
@@ -215,6 +218,7 @@ test('MACDIndicator: creation sanity test', (t) => {
             );
             expectedIndex++;
         }
+        IndicatorConfig.emaHistoryLength = origHistoryLength;
         t.end();
     });
 });
