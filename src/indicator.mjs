@@ -73,7 +73,7 @@ export class SingleIndicator extends Indicator {
         const data = this._data.nPeriodsAsArray(time, n);
         if (data === null) {
             log.debug(
-                `SingleIndicator ${this.name}. No data for ${n} intervals,
+                `SingleIndicator ${this.name}. No data for ${n} intervals, `+
                 `starting at ${timeStr(time)}. firstData=${timeStr(this._data.firstData)}`
             );
             throw new Error(`${this.name} missing data for ${n} intervals at `+
