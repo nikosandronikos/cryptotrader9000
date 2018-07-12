@@ -254,7 +254,7 @@ export class EMAIndicator extends SingleIndicator {
 
         await this.source.prepHistory(startTime);
         const latestData = this.source.latestData() || this.binance.getTimestamp();
-        for (let time = startTime; time < latestData; time += this.intervalMs) {
+        for (let time = startTime; time <= latestData; time += this.intervalMs) {
             this._calculate(time);
         }
     }
@@ -357,7 +357,7 @@ export class RSIIndicator extends SingleIndicator {
 
         await this.source.prepHistory(startTime);
         const latestData = this.source.latestData() || this.binance.getTimestamp();
-        for (let time = startTime; time < latestData; time += this.intervalMs) {
+        for (let time = startTime; time <= latestData; time += this.intervalMs) {
             this._calculate(time);
         }
     }
@@ -626,7 +626,7 @@ export class DifferenceIndicator extends SingleIndicator {
             endTime = Math.min(endTime, ema.latestData());
         }
 
-        for (let time = startTime; time < endTime; time += this.intervalMs) {
+        for (let time = startTime; time <= endTime; time += this.intervalMs) {
             this._calculate(time);
         }
     }
@@ -714,7 +714,7 @@ export class MACDIndicator extends MultiIndicator {
             this._histogram.latestData()
         );
 
-        for (let time = startTime; time < endTime; time += this.intervalMs) {
+        for (let time = startTime; time <= endTime; time += this.intervalMs) {
             this._calculate(time);
         }
     }
