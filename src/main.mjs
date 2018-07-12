@@ -32,16 +32,19 @@ import Big from 'big.js';
     );
 
     const pair = binance.getCoinPair('XMR', 'BTC');
-    const price = await BackTestPriceIndicator.createAndInit(
-        binance,
-        `BackTestPrice(${pair.symbol})`,
-        pair,
-        '15m'
-    );
-
-    //const nulsbtc = binance.getCoinPair('XMR','BTC');
-    //const price = await PriceIndicator.createAndInit(
-    //    binance, nulsbtc.symbol, nulsbtc, '15m', 20);
+    let price;
+    if (backtest) {
+        price = await BackTestPriceIndicator.createAndInit(
+            binance,
+            `BackTestPrice(${pair.symbol})`,
+            pair,
+            '15m'
+        );
+    } else {
+        price = await PriceIndicator.createAndInit(
+            binance, pair.symbol, pair, '15m', 20
+        );
+    }
     const multiEma = await MultiEMAIndicator.createAndInit(
         `${price.coinPair.symbol} MultiEMA`, price, [21, 13, 8]);
 
@@ -78,7 +81,7 @@ import Big from 'big.js';
         }
         log.notify(...message);
     });
-    multiEma.addObserver('cross', (crossed, time, price) => {
+    multiEma.addObserver('cross', (/*crossed, time, price*/) => {
         //if (buyAt == null) return;
         //const signal =
         //    crossed.findIndex((e) => e.nPeriods == 

@@ -534,8 +534,7 @@ export class DifferenceIndicator extends SingleIndicator {
         }
 
         for (const ema of this._emas) {
-            ema.addObserver('update', (time, ema, price) => {
-                const oldtime = time;
+            ema.addObserver('update', (time/*, ema, price*/) => {
                 time -= (time % this.intervalMs);
                 this._nUpdates ++;
                 if (time == this._updateTime && this._nUpdates == this._emas.length) {
@@ -637,7 +636,10 @@ export class MACDIndicator extends MultiIndicator {
 
         // Histogram is updated by the MACD and the signal, so when we get
         // an update from it, we know we have complete data for the period.
-        this._histogram.addObserver('update', (time, difference, valueA, valueB) => this._calculate(time));
+        this._histogram.addObserver(
+            'update',
+            (time/*, difference, valueA, valueB*/) => this._calculate(time)
+        );
     }
 
     earliestData() {
