@@ -83,8 +83,9 @@ export function average(data) {
  * @return {Big}    The computed average gain.
  */
 export function averageGain(data) {
-    let lastV = data.shift();
-    const gains = data.reduce((a, v) => {
+    const d = data.slice();
+    let lastV = d.shift();
+    const gains = d.reduce((a, v) => {
         a.push(Big(Math.max(v.minus(lastV), 0)));
         lastV = v;
         return a;
@@ -103,8 +104,9 @@ export function averageGain(data) {
  * @return {Big}    The computed average loss.
  */
 export function averageLoss(data) {
-    let lastV = data.shift();
-    const losses = data.reduce((a, v) => {
+    const d = data.slice();
+    let lastV = d.shift();
+    const losses = d.reduce((a, v) => {
         a.push(Big(Math.max(lastV.minus(v), 0)));
         lastV = v;
         return a;
