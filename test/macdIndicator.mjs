@@ -33,7 +33,7 @@ test('DifferenceIndicator: prepHistory', (t) => {
         t.equal(prepHistoryRun, 2, 'prepHistory was called');
         t.equal(ind._data.hasData, true, 'Indicator has data');
         t.equal(ind.earliestData(), historyStart, 'earliestData() matches historyStart');
-        t.equal(ind.latestData(), time - intervalMs, 'latestData() matches time, minus one interval');
+        t.equal(ind.latestData(), time, 'latestData() matches time');
         t.end();
    });
 });
@@ -188,8 +188,8 @@ test('MACDIndicator: creation sanity test', (t) => {
     MACDIndicator.createAndInit('MACDTest', source).then(ind => {
         t.equal(ind.interval, interval, 'intervals match');
         t.equal(ind.intervalMs, intervalMs, 'intervalMs match');
-        // Once for each indicator. No history is prepared so no call is skipped.
-        t.equal(prepHistoryRun, 10, 'prepHistoryRun == 10');
+        // Called once for each EMA that makes up the MACD difference indicator.
+        t.equal(prepHistoryRun, 2, 'prepHistoryRun == 2');
         t.equal(addObserverRun, 2, 'addObserverRun == 2');
 
         // Add data and cause all obervers of the source to do calculations.

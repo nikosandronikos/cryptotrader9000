@@ -36,7 +36,7 @@ test('EMAIndicator: prepHistory', (t) => {
         t.equal(ema._data.hasData, true, 'EMAIndicator has data');
         console.log(ema._data.firstData);
         t.equal(ema.earliestData(), historyStart, 'earliestData() matches historyStart');
-        t.equal(ema.latestData(), time - intervalMs, 'latestData() matches time, minus one interval');
+        t.equal(ema.latestData(), time, 'latestData() matches time');
         t.end();
    });
 });
