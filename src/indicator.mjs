@@ -175,11 +175,6 @@ export class EMAIndicator extends SingleIndicator {
         const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
         await this.prepHistory(historyStart);
 
-        // Calculate recent values so that EMAs stabilise.
-        for (let time = historyStart; time < currentTime; time += this.intervalMs) {
-            this._calculate(time);
-        }
-
         // eslint-disable-next-line no-unused-vars
         this.source.addObserver('update', (time, data) => this._calculate(time));
     }
