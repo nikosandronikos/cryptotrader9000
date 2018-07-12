@@ -139,6 +139,11 @@ export class BackTestPriceIndicator extends PriceIndicator {
         // Do nothing, we should already have all required history.
         log.info(`BackTestPriceIndicator.prepHistory: ${this.coinPair.symbol} ${this.interval} from ${timeStr(startTime)} - skipping`);
     }
+
+    latestData() {
+        // Pretend we don't have data from the future.
+        return this.binance.currentTime;
+    }
 }
 
 
