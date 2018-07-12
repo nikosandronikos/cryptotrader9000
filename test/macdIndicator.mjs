@@ -17,7 +17,6 @@ test('DifferenceIndicator: prepHistory', (t) => {
             sourceObservers.push(fn);
         },
         getAt: (time) => {
-            console.log('time', time);
             return Big(sourceValue++);
         },
         latestData: () => time
@@ -26,7 +25,6 @@ test('DifferenceIndicator: prepHistory', (t) => {
     const fakeBinance = {
         getTimestamp: () => time
     }
-    const ts = new TimeSeriesData('1m');
     const ind = new DifferenceIndicator(fakeBinance, 'DiffIndicator Test', fakeIndicator, fakeIndicator);
 
     t.equal(ind._data.hasData, false, 'Indicator has no data');
@@ -34,7 +32,6 @@ test('DifferenceIndicator: prepHistory', (t) => {
     ind.prepHistory(historyStart).then( () => {
         t.equal(prepHistoryRun, 2, 'prepHistory was called');
         t.equal(ind._data.hasData, true, 'Indicator has data');
-        console.log(ind._data.firstData);
         t.equal(ind.earliestData(), historyStart, 'earliestData() matches historyStart');
         t.equal(ind.latestData(), time - intervalMs, 'latestData() matches time, minus one interval');
         t.end();
@@ -44,7 +41,6 @@ test('DifferenceIndicator: prepHistory', (t) => {
 test('DifferenceIndicator: calculate', (t) => {
     let time = 0;
     const interval = '1m';
-    const ts = new TimeSeriesData(interval);
     const fakeBinance = {getTimestamp: () => time};
     const a = {
         interval: interval,
@@ -78,7 +74,6 @@ test('DifferenceIndicator: creation sanity test', (t) => {
     let time = 0;
     const interval = '1m';
     const intervalMs = 1 * 60 * 1000;
-    const ts = new TimeSeriesData(interval);
     const fakeBinance = {getTimestamp: () => time};
     let prepHistoryRun = 0;
     let addObserverRun = 0;
@@ -165,7 +160,6 @@ test('MACDIndicator: creation sanity test', (t) => {
     let time = 0;
     const interval = '1m';
     const intervalMs = 1 * 60 * 1000;
-    const ts = new TimeSeriesData(interval);
     const fakeBinance = {getTimestamp: () => time};
     let prepHistoryRun = 0;
     let addObserverRun = 0;
@@ -182,7 +176,6 @@ test('MACDIndicator: creation sanity test', (t) => {
             sourceObservers.push(fn);
         },
         getAt: (time) => {
-            console.log(time);
             if (time > sourceLastTime) pricesIndex++;
             sourceLastTime = time;
             return Big(prices[pricesIndex]);
