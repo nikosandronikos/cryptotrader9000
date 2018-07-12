@@ -269,6 +269,11 @@ export class RSIIndicator extends SingleIndicator {
         this.prevAvgLoss = null;
     }
 
+    /**
+     * Prepare the indicator for use.
+     * This method establishes the required network connections to gather
+     * price data.
+     */
     async init() {
         const currentTime = this.binance.getTimestamp();
         const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
@@ -277,6 +282,15 @@ export class RSIIndicator extends SingleIndicator {
         this.source.addObserver('update', (time, data) => this._calculate(time));
     }
 
+    /**
+     * A helper method to create and initialise the indicator instance.
+     * @param {string}          name        A name for the indicator.
+     * @param {SingleIndicator} source      The data source that the RSI
+     *                                      is calculated for.
+     * @param {number}          [nPeriods=14] The number of periods over which
+     *                                      to calculate the RSI.
+     * @returns {EMAIndicator}  An instance that is ready to use.
+     */
     static async createAndInit(name, source, nPeriods=14) {
         log.info(`Creating RSIIndicator ${name} (${source.interval})`);
         const ind = new RSIIndicator(source.binance, name, source, nPeriods);
@@ -290,7 +304,6 @@ export class RSIIndicator extends SingleIndicator {
         //   ?id=chart_school:technical_indicators:relative_strength_index_rsi#calculation
         // RSI = 100 - 100 / (1 + RS)
         // RS = Average gain / Average loss
-
         const periodData = this.source.getNData(time, -(this.nPeriods+1));
         const current = periodData[periodData.length - 1];
         let avgGain, avgLoss;
@@ -327,6 +340,13 @@ export class RSIIndicator extends SingleIndicator {
         return rsi;
     }
 
+    /**
+     * Ensure this instance has historical data from startTime
+     * to the current time.
+     * Call this method prior to retreiving data for any time value before
+     * the creation time of this instance.
+     * @param {number}  startTime   The earliest required data.
+     */
     async prepHistory(startTime) {
         log.info(`RSIIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
         const earliestData = this.earliestData();
