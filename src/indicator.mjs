@@ -2,7 +2,7 @@ import Big from 'big.js';
 import {ObservableMixin} from './observable';
 import {BinanceStreamKlines} from './binancestream.mjs';
 import {TimeSeriesData} from './timeseries';
-import {findCross} from './utils';
+import {findCross, averageGain, averageLoss} from './calc';
 import {chartIntervalToMs, timeStr} from './utils';
 import {log} from './log';
 
@@ -54,6 +54,10 @@ export class SingleIndicator extends Indicator {
             throw new Error(`${this.name} has no data for ${timeStr(time)} (${time}`);
         }
         return this._data.getAt(time);
+    }
+
+    getNData(time, n) {
+        return this._data.nPeriodsAsArray(time, n);
     }
 
     earliestData() {
@@ -232,7 +236,90 @@ export class EMAIndicator extends SingleIndicator {
 
         await this.source.prepHistory(startTime);
         const latestData = this.source.latestData() || this.binance.getTimestamp();
-        for (let time = startTime; time < this.source.latestData(); time += this.intervalMs) {
+        for (let time = startTime; time < latestData; time += this.intervalMs) {
+            this._calculate(time);
+        }
+    }
+}
+
+export class RSIIndicator extends SingleIndicator {
+    constructor(binance, name, source,  nPeriods=14) {
+        super(binance, name, source.interval);
+        this.nPeriods = nPeriods;
+        this.source = source;
+        this.prevAvgGain = null;
+        this.prevAvgLoss = null;
+    }
+
+    async init() {
+        const currentTime = this.binance.getTimestamp();
+        const historyStart = currentTime - IndicatorConfig.emaHistoryLength * this.intervalMs;
+        await this.prepHistory(historyStart);
+        // eslint-disable-next-line no-unused-vars
+        this.source.addObserver('update', (time, data) => this._calculate(time));
+    }
+
+    static async createAndInit(name, source, nPeriods=14) {
+        log.info(`Creating RSIIndicator ${name} (${source.interval})`);
+        const ind = new RSIIndicator(source.binance, name, source, nPeriods);
+        await ind.init();
+        return ind;
+    }
+
+    _calculate(time) {
+        // Based on
+        // http://stockcharts.com/school/doku.php
+        //   ?id=chart_school:technical_indicators:relative_strength_index_rsi#calculation
+        // RSI = 100 - 100 / (1 + RS)
+        // RS = Average gain / Average loss
+
+        const periodData = this.source.getNData(time, -(this.nPeriods+1));
+        const current = periodData[periodData.length - 1];
+        let avgGain, avgLoss;
+
+        if (this.prevAvgGain === null) {
+            avgGain = averageGain(periodData);
+            avgLoss = averageLoss(periodData);
+        } else {
+            const previous = periodData[periodData.length - 2];
+            const currentGain = Math.max(current.minus(previous), 0);
+            const currentLoss = Math.max(previous.minus(current), 0);
+            avgGain =
+                this.prevAvgGain.times(this.nPeriods - 1)
+                    .plus(currentGain)
+                    .div(this.nPeriods);
+            avgLoss =
+                this.prevAvgLoss.times(this.nPeriods - 1)
+                    .plus(currentLoss)
+                    .div(this.nPeriods);
+        }
+        this.prevAvgGain = avgGain;
+        this.prevAvgLoss = avgLoss;
+
+        let rsi;
+        if (avgLoss.eq(0)) rsi = Big(100);
+        else if (avgGain.eq(0)) rsi = Big(0);
+        else {
+            const rs = avgGain.div(avgLoss);
+            rsi = Big(100).minus(Big(100).div(rs.plus(1)));
+        }
+
+        this._data. addData(time, rsi);
+        this.notifyObservers('update', time, rsi, current);
+        return rsi;
+    }
+
+    async prepHistory(startTime) {
+        log.info(`RSIIndicator.prepHistory: ${this.name} ${this.interval} from ${timeStr(startTime)}.`);
+        const earliestData = this.earliestData();
+        if (earliestData !== null && !this.earlieststartTime >= this.earliestData()) {
+            log.debug(`skipping. startTime = ${startTime}. Is >= ${this.earliestData()}`);
+            return;
+        }
+
+        await this.source.prepHistory(startTime);
+        const latestData = this.source.latestData() || this.binance.getTimestamp();
+        for (let time = startTime; time < latestData; time += this.intervalMs) {
             this._calculate(time);
         }
     }
