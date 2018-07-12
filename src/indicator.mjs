@@ -56,8 +56,31 @@ export class SingleIndicator extends Indicator {
         return this._data.getAt(time);
     }
 
+    /**
+     * Get a number of data values, one for each time interval either starting
+     * from, or ending at time.
+     * @param {number}  time        Time to start counting intervals from -
+     *                              always included in the returned array.
+     * @param {number}  n           The number of data values to return. If n
+     *                              is positive then a value is returned for
+     *                              each time interval starting from time.
+     *                              If n is negative, the intervals
+     *                              are prior to, and including time.
+     * @return {Big[]}  An array with n elements containing data values.
+     * @throws {Error}  If data is not available for all n intervals.
+     */
     getNData(time, n) {
-        return this._data.nPeriodsAsArray(time, n);
+        const data = this._data.nPeriodsAsArray(time, n);
+        if (data === null) {
+            log.debug(
+                `SingleIndicator ${this.name}. No data for ${n} intervals,
+                `starting at ${timeStr(time)}. firstData=${timeStr(this._data.firstData)}`
+            );
+            throw new Error(`${this.name} missing data for ${n} intervals at `+
+                `${timeStr(time)} (${time})`
+            );
+        }
+        return data;
     }
 
     earliestData() {
