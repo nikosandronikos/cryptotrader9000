@@ -2,7 +2,7 @@
   "name": "cryptotrader9000",
   "version": "0.0.1",
   "description": "A very basic rule based trading bot for Binance. For fun, not profit.",
-  "main": "src/main.mjs",
+  "main": "index.mjs",
   "dependencies": {
     "axios": "^0.18.0",
     "big.js": "^5.1.2",
